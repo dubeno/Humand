@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心 - Humand{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title">
+                <i class="bi bi-person-circle"></i> 个人中心
+            </h1>
+            <p class="page-subtitle">管理您的个人信息和设置</p>
+        </div>
+    </div>
+</div>
+
+<div class="profile-container fade-in" style="animation-delay: 0.1s;">
+    <!-- 用户信息卡片 -->
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {% if user.avatar_url %}
+                    <img src="{{ user.avatar_url }}" alt="Avatar">
+                {% else %}
+                    <i class="bi bi-person-fill"></i>
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <h2 class="profile-name">{{ user.full_name }}</h2>
+                <p class="profile-username">@{{ user.username }}</p>
+                <div class="profile-role">
+                    <span class="role-badge role-{{ user.role }}">
+                        {% if user.role == 'admin' %}
+                            <i class="bi bi-shield-fill-check"></i> 管理员
+                        {% elif user.role == 'approver' %}
+                            <i class="bi bi-clipboard-check-fill"></i> 审批员
+                        {% elif user.role == 'viewer' %}
+                            <i class="bi bi-eye-fill"></i> 查看者
+                        {% else %}
+                            <i class="bi bi-person-fill"></i> 申请人
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="profile-stats">
+            <div class="stat-item">
+                <i class="bi bi-list-check"></i>
+                <div>
+                    <div class="stat-value">{{ user.total_approvals }}</div>
+                    <div class="stat-label">总审批数</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <i class="bi bi-check-circle-fill"></i>
+                <div>
+                    <div class="stat-value">{{ user.approved_count }}</div>
+                    <div class="stat-label">批准数</div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <i class="bi bi-x-circle-fill"></i>
+                <div>
+                    <div class="stat-value">{{ user.rejected_count }}</div>
+                    <div class="stat-label">拒绝数</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详细信息 -->
+    <div class="info-section fade-in" style="animation-delay: 0.2s;">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">
+                    <i class="bi bi-info-circle-fill"></i> 基本信息
+                </h5>
+                <button class="btn btn-outline-primary btn-sm" onclick="toggleEditMode()">
+                    <i class="bi bi-pencil-fill"></i> 编辑
+                </button>
+            </div>
+            <div class="card-body">
+                <form id="profileForm" method="post" action="/profile/update">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label class="info-label">邮箱</label>
+                            <input type="email" 
+                                   class="form-control" 
+                                   name="email" 
+                                   value="{{ user.email }}"
+                                   disabled>
+                        </div>
+                        <div class="info-item">
+                            <label class="info-label">电话</label>
+                            <input type="tel" 
+                                   class="form-control" 
+                                   name="phone" 
+                                   value="{{ user.phone or '' }}"
+                                   placeholder="未设置"
+                                   disabled>
+                        </div>
+                        <div class="info-item">
+                            <label class="info-label">部门</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="department" 
+                                   value="{{ user.department or '' }}"
+                                   placeholder="未设置"
+                                   disabled>
+                        </div>
+                        <div class="info-item">
+                            <label class="info-label">职位</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="position" 
+                                   value="{{ user.position or '' }}"
+                                   placeholder="未设置"
+                                   disabled>
+                        </div>
+                    </div>
+                    <div class="form-actions" style="display: none;">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-lg"></i> 保存更改
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleEditMode()">
+                            <i class="bi bi-x-lg"></i> 取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 账户安全 -->
+    <div class="security-section fade-in" style="animation-delay: 0.3s;">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">
+                    <i class="bi bi-shield-lock-fill"></i> 账户安全
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="security-item">
+                    <div class="security-info">
+                        <i class="bi bi-key-fill"></i>
+                        <div>
+                            <div class="security-title">修改密码</div>
+                            <div class="security-desc">定期更换密码以保护账户安全</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary" onclick="showPasswordModal()">
+                        <i class="bi bi-pencil"></i> 修改
+                    </button>
+                </div>
+                
+                <div class="security-item">
+                    <div class="security-info">
+                        <i class="bi bi-clock-history"></i>
+                        <div>
+                            <div class="security-title">最后登录</div>
+                            <div class="security-desc">
+                                {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '从未登录' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="security-item">
+                    <div class="security-info">
+                        <i class="bi bi-calendar-check"></i>
+                        <div>
+                            <div class="security-title">注册时间</div>
+                            <div class="security-desc">
+                                {{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改密码模态框 -->
+<div class="modal fade" id="passwordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-key-fill"></i> 修改密码
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="/profile/change-password">
+                <div class="modal-body">
+                    <div class="form-group mb-3">
+                        <label class="form-label">当前密码</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="old_password"
+                               required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="form-label">新密码</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="new_password"
+                               minlength="6"
+                               required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">确认新密码</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="new_password_confirm"
+                               minlength="6"
+                               required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        取消
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 确认修改
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEditMode() {
+    const form = document.getElementById('profileForm');
+    const inputs = form.querySelectorAll('input');
+    const actions = form.querySelector('.form-actions');
+    const isEditing = !inputs[0].disabled;
+    
+    inputs.forEach(input => {
+        input.disabled = isEditing;
+    });
+    
+    actions.style.display = isEditing ? 'none' : 'flex';
+}
+
+function showPasswordModal() {
+    const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    modal.show();
+}
+</script>
+
+<style>
+.profile-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
+
+.profile-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+}
+
+.profile-header {
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    background: linear-gradient(135deg, rgba(212, 149, 108, 0.1) 0%, transparent 100%);
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--warm-orange), var(--hope-green));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--deep-night);
+    flex-shrink: 0;
+    box-shadow: 0 10px 30px rgba(212, 149, 108, 0.3);
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.profile-name {
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--heal-white);
+    margin: 0 0 0.5rem 0;
+}
+
+.profile-username {
+    color: var(--earth-gray);
+    margin: 0 0 1rem 0;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.role-admin {
+    background: rgba(212, 149, 108, 0.15);
+    color: var(--warm-orange);
+}
+
+.role-approver {
+    background: rgba(123, 165, 145, 0.15);
+    color: var(--hope-green);
+}
+
+.role-viewer {
+    background: rgba(66, 165, 245, 0.15);
+    color: var(--info-blue);
+}
+
+.role-requester {
+    background: rgba(139, 134, 128, 0.15);
+    color: var(--earth-gray);
+}
+
+.profile-stats {
+    padding: 1.5rem 2rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-item > i {
+    font-size: 2rem;
+    color: var(--warm-orange);
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--heal-white);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--earth-gray);
+    margin-top: 0.25rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.info-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--earth-gray);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.security-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    background: rgba(245, 245, 240, 0.02);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.security-item:last-child {
+    margin-bottom: 0;
+}
+
+.security-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.security-info > i {
+    font-size: 1.5rem;
+    color: var(--warm-orange);
+}
+
+.security-title {
+    font-weight: 500;
+    color: var(--heal-white);
+    margin-bottom: 0.25rem;
+}
+
+.security-desc {
+    font-size: 0.875rem;
+    color: var(--earth-gray);
+}
+
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .profile-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .security-item {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+

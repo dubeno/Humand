@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+
+{% block title %}审批详情 - {{ approval_request.tool_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3">
+                    <i class="bi bi-clipboard-check"></i> 审批详情
+                </h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/">首页</a></li>
+                        <li class="breadcrumb-item active">审批详情</li>
+                    </ol>
+                </nav>
+            </div>
+            <div>
+                {% if approval_request.status == 'pending' %}
+                    <span class="badge bg-warning fs-6">
+                        <i class="bi bi-clock"></i> 待审批
+                    </span>
+                {% elif approval_request.status == 'approved' %}
+                    <span class="badge bg-success fs-6">
+                        <i class="bi bi-check-circle"></i> 已批准
+                    </span>
+                {% elif approval_request.status == 'rejected' %}
+                    <span class="badge bg-danger fs-6">
+                        <i class="bi bi-x-circle"></i> 已拒绝
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 基本信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i> 基本信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>工具名称:</strong></td>
+                                <td>{{ approval_request.tool_name }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>申请人:</strong></td>
+                                <td>{{ approval_request.requester }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>申请时间:</strong></td>
+                                <td>{{ approval_request.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>请求ID:</strong></td>
+                                <td><code>{{ approval_request.request_id }}</code></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-chat-text"></i> 申请原因</h6>
+                        <p class="text-muted">{{ approval_request.reason }}</p>
+                        
+                        {% if approval_request.status != 'pending' %}
+                        <h6><i class="bi bi-clipboard-check"></i> 审批信息</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>审批人:</strong></td>
+                                <td>{{ approval_request.approver or '系统' }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>审批时间:</strong></td>
+                                <td>{{ approval_request.approved_at.strftime('%Y-%m-%d %H:%M:%S') if approval_request.approved_at else '未知' }}</td>
+                            </tr>
+                        </table>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if approval_request.tool_params %}
+                <div class="tool-params mt-4">
+                    <h6><i class="bi bi-code-square"></i> 工具参数</h6>
+                    <pre class="bg-light p-3 rounded"><code>{{ params_json }}</code></pre>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if approval_request.status == 'pending' %}
+        <div class="approval-actions">
+            <h5><i class="bi bi-hand-thumbs-up"></i> 审批操作</h5>
+            <p class="text-muted">请仔细审查上述信息，选择合适的审批方式。</p>
+            
+            <!-- 审批选项卡 -->
+            <ul class="nav nav-tabs" id="approvalTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="approve-tab" data-bs-toggle="tab" data-bs-target="#approve-pane" type="button" role="tab">
+                        <i class="bi bi-check-circle text-success"></i> 直接批准
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="approve-with-guidance-tab" data-bs-toggle="tab" data-bs-target="#approve-with-guidance-pane" type="button" role="tab">
+                        <i class="bi bi-lightbulb text-warning"></i> 批准并指导
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="request-changes-tab" data-bs-toggle="tab" data-bs-target="#request-changes-pane" type="button" role="tab">
+                        <i class="bi bi-arrow-clockwise text-info"></i> 要求修改
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="reject-tab" data-bs-toggle="tab" data-bs-target="#reject-pane" type="button" role="tab">
+                        <i class="bi bi-x-circle text-danger"></i> 拒绝执行
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3" id="approvalTabContent">
+                <!-- 直接批准 -->
+                <div class="tab-pane fade show active" id="approve-pane" role="tabpanel">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-check-circle"></i> 直接批准执行</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">批准 Agent 按照当前参数执行操作</p>
+                            <form method="post" action="/approval/{{ approval_request.request_id }}/approve">
+                                <input type="hidden" name="action_type" value="approve">
+                                <div class="mb-3">
+                                    <label for="approver1" class="form-label">审批人 *</label>
+                                    <input type="text" class="form-control" id="approver1" name="approver" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="approve_comment" class="form-label">审批意见</label>
+                                    <textarea class="form-control" id="approve_comment" name="comment" rows="2" placeholder="可选，说明批准的原因"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-check-circle"></i> 直接批准
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 批准并指导 -->
+                <div class="tab-pane fade" id="approve-with-guidance-pane" role="tabpanel">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0"><i class="bi bi-lightbulb"></i> 批准并提供指导</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">批准执行，但提供改进建议供 Agent 参考</p>
+                            <form method="post" action="/approval/{{ approval_request.request_id }}/approve">
+                                <input type="hidden" name="action_type" value="approve_with_guidance">
+                                <div class="mb-3">
+                                    <label for="approver2" class="form-label">审批人 *</label>
+                                    <input type="text" class="form-control" id="approver2" name="approver" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="guidance_comment" class="form-label">指导意见 *</label>
+                                    <textarea class="form-control" id="guidance_comment" name="comment" rows="4" required 
+                                              placeholder="请提供具体的指导意见，例如：&#10;- 建议调整某个参数&#10;- 推荐使用某种方法&#10;- 注意某些事项"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="guidance_priority" class="form-label">指导优先级</label>
+                                    <select class="form-select" id="guidance_priority" name="guidance_priority">
+                                        <option value="suggestion">建议 - 可选择采纳</option>
+                                        <option value="recommendation">推荐 - 强烈建议采纳</option>
+                                        <option value="requirement">要求 - 必须采纳</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="bi bi-lightbulb"></i> 批准并指导
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 要求修改 -->
+                <div class="tab-pane fade" id="request-changes-pane" role="tabpanel">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-arrow-clockwise"></i> 要求修改后重新提交</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">要求 Agent 根据指导修改后重新提交审批</p>
+                            <form method="post" action="/approval/{{ approval_request.request_id }}/request-changes">
+                                <input type="hidden" name="action_type" value="request_changes">
+                                <div class="mb-3">
+                                    <label for="approver3" class="form-label">审批人 *</label>
+                                    <input type="text" class="form-control" id="approver3" name="approver" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="change_requirements" class="form-label">修改要求 *</label>
+                                    <textarea class="form-control" id="change_requirements" name="comment" rows="4" required
+                                              placeholder="请详细说明需要修改的内容，例如：&#10;- 修改食谱中的某个步骤&#10;- 调整食材用量&#10;- 改变烹饪方法"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="change_deadline" class="form-label">修改期限</label>
+                                    <select class="form-select" id="change_deadline" name="change_deadline">
+                                        <option value="immediate">立即修改</option>
+                                        <option value="1hour">1小时内</option>
+                                        <option value="1day">1天内</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-info w-100">
+                                    <i class="bi bi-arrow-clockwise"></i> 要求修改
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 拒绝执行 -->
+                <div class="tab-pane fade" id="reject-pane" role="tabpanel">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0"><i class="bi bi-x-circle"></i> 拒绝执行</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">完全拒绝此次操作，Agent 将停止执行</p>
+                            <form method="post" action="/approval/{{ approval_request.request_id }}/reject">
+                                <input type="hidden" name="action_type" value="reject">
+                                <div class="mb-3">
+                                    <label for="approver4" class="form-label">审批人 *</label>
+                                    <input type="text" class="form-control" id="approver4" name="approver" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="reject_reason" class="form-label">拒绝原因 *</label>
+                                    <textarea class="form-control" id="reject_reason" name="comment" rows="3" required
+                                              placeholder="请说明拒绝的具体原因"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="reject_category" class="form-label">拒绝类别</label>
+                                    <select class="form-select" id="reject_category" name="reject_category">
+                                        <option value="security">安全风险</option>
+                                        <option value="policy">违反政策</option>
+                                        <option value="quality">质量不符</option>
+                                        <option value="resource">资源限制</option>
+                                        <option value="other">其他原因</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="bi bi-x-circle"></i> 拒绝执行
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- 已处理的审批显示结果 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clipboard-check"></i> 审批结果
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if approval_request.status == 'approved' %}
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-check-circle"></i> 审批已通过</h6>
+                        <p><strong>审批人:</strong> {{ approval_request.approver }}</p>
+                        {% if approval_request.approval_comment %}
+                        <p><strong>审批意见:</strong> {{ approval_request.approval_comment }}</p>
+                        {% endif %}
+                    </div>
+                {% elif approval_request.status == 'rejected' %}
+                    <div class="alert alert-danger">
+                        <h6><i class="bi bi-x-circle"></i> 审批已拒绝</h6>
+                        <p><strong>审批人:</strong> {{ approval_request.approver }}</p>
+                        {% if approval_request.approval_comment %}
+                        <p><strong>拒绝原因:</strong> {{ approval_request.approval_comment }}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let isUserInteracting = false;
+    let lastInteractionTime = Date.now();
+    let statusCheckInterval;
+    let refreshWarningShown = false;
+    
+    // 检测用户交互
+    function detectUserInteraction() {
+        const interactionEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+        
+        interactionEvents.forEach(eventType => {
+            document.addEventListener(eventType, function() {
+                isUserInteracting = true;
+                lastInteractionTime = Date.now();
+                
+                // 显示交互状态指示器
+                updateInteractionStatus(true);
+            });
+        });
+        
+        // 检测用户是否停止交互
+        setInterval(function() {
+            if (Date.now() - lastInteractionTime > 5000) { // 5秒无交互
+                isUserInteracting = false;
+                updateInteractionStatus(false);
+            }
+        }, 1000);
+    }
+    
+    // 更新交互状态指示器
+    function updateInteractionStatus(interacting) {
+        let indicator = document.getElementById('interaction-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'interaction-indicator';
+            indicator.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                z-index: 1000;
+                transition: all 0.3s ease;
+            `;
+            document.body.appendChild(indicator);
+        }
+        
+        if (interacting) {
+            indicator.innerHTML = '🔒 正在操作中 - 已暂停自动刷新';
+            indicator.style.backgroundColor = '#28a745';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+        } else {
+            indicator.innerHTML = '👁️ 监控中 - 自动检查状态';
+            indicator.style.backgroundColor = '#17a2b8';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '0.8';
+        }
+    }
+    
+    // 智能状态检查
+    async function checkApprovalStatus() {
+        // 如果用户正在交互，跳过检查
+        if (isUserInteracting) {
+            console.log('用户正在交互，跳过状态检查');
+            return;
+        }
+        
+        try {
+            const response = await fetch(window.location.pathname, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // 检查状态是否改变
+                const currentStatus = document.querySelector('.badge')?.textContent?.trim();
+                const newStatus = doc.querySelector('.badge')?.textContent?.trim();
+                
+                if (currentStatus && newStatus && currentStatus !== newStatus) {
+                    // 状态已改变，显示通知并刷新
+                    showStatusChangeNotification(newStatus);
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                }
+            }
+        } catch (error) {
+            console.error('检查状态失败:', error);
+        }
+    }
+    
+    // 显示状态变化通知
+    function showStatusChangeNotification(newStatus) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #28a745;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        notification.innerHTML = `
+            <div style="text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 10px;">✅</div>
+                <div>审批状态已更新: ${newStatus}</div>
+                <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">页面将在2秒后自动刷新</div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 3秒后移除通知
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+    
+    // 手动刷新按钮
+    function addManualRefreshButton() {
+        const refreshBtn = document.createElement('button');
+        refreshBtn.innerHTML = '🔄 手动刷新状态';
+        refreshBtn.className = 'btn btn-outline-secondary btn-sm';
+        refreshBtn.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        `;
+        refreshBtn.onclick = function() {
+            location.reload();
+        };
+        
+        document.body.appendChild(refreshBtn);
+    }
+    
+    // 表单验证和提交保护
+    function setupFormValidation() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            // 表单获得焦点时标记为交互中
+            form.addEventListener('focusin', function() {
+                isUserInteracting = true;
+                lastInteractionTime = Date.now();
+            });
+            
+            form.addEventListener('submit', function(e) {
+                const requiredFields = form.querySelectorAll('[required]');
+                let isValid = true;
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                    }
+                });
+                
+                if (!isValid) {
+                    e.preventDefault();
+                    alert('请填写所有必填字段');
+                    return;
+                }
+                
+                // 提交前确认
+                const actionType = form.querySelector('[name="action_type"]')?.value || 'unknown';
+                const actionNames = {
+                    'approve': '直接批准',
+                    'approve_with_guidance': '批准并指导', 
+                    'request_changes': '要求修改',
+                    'reject': '拒绝执行'
+                };
+                
+                const actionName = actionNames[actionType] || '执行操作';
+                if (!confirm(`确认要${actionName}吗？此操作不可撤销。`)) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                // 显示提交中状态
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 提交中...';
+                }
+            });
+        });
+    }
+    
+    // 页面初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if approval_request.status == 'pending' %}
+        // 只有在pending状态才启用智能刷新
+        detectUserInteraction();
+        addManualRefreshButton();
+        
+        // 启动智能状态检查 (30秒间隔，比较温和)
+        statusCheckInterval = setInterval(checkApprovalStatus, 30000);
+        
+        // 页面可见性变化时的处理
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // 页面隐藏时停止检查
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                }
+            } else {
+                // 页面重新可见时恢复检查
+                statusCheckInterval = setInterval(checkApprovalStatus, 30000);
+                // 立即检查一次
+                setTimeout(checkApprovalStatus, 1000);
+            }
+        });
+        {% endif %}
+        
+        setupFormValidation();
+        updateInteractionStatus(false);
+    });
+    
+    // 页面卸载时清理
+    window.addEventListener('beforeunload', function() {
+        if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+        }
+    });
+</script>
+{% endblock %}

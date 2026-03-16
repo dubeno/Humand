@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>审批统计 - Humand</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        .metric-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .trend-up {
+            color: #28a745;
+        }
+        .trend-down {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check"></i> Humand 审批系统
+            </a>
+            <div class="navbar-nav flex-row">
+                <a class="nav-link px-3" href="/">审批列表</a>
+                <a class="nav-link px-3" href="/monitor">监控中心</a>
+                <a class="nav-link px-3 active" href="/statistics">统计分析</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h2><i class="bi bi-graph-up"></i> 审批统计分析</h2>
+                <p class="text-muted">实时审批数据统计和趋势分析</p>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card text-center border-primary">
+                    <div class="card-body">
+                        <i class="bi bi-file-earmark-text text-primary" style="font-size: 2rem;"></i>
+                        <div class="metric-number text-primary">{{ stats.total }}</div>
+                        <div class="metric-label">总审批数</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card text-center border-warning">
+                    <div class="card-body">
+                        <i class="bi bi-clock text-warning" style="font-size: 2rem;"></i>
+                        <div class="metric-number text-warning">{{ stats.pending }}</div>
+                        <div class="metric-label">待审批</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card text-center border-success">
+                    <div class="card-body">
+                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                        <div class="metric-number text-success">{{ stats.approved }}</div>
+                        <div class="metric-label">已批准</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card stat-card text-center border-danger">
+                    <div class="card-body">
+                        <i class="bi bi-x-circle text-danger" style="font-size: 2rem;"></i>
+                        <div class="metric-number text-danger">{{ stats.rejected }}</div>
+                        <div class="metric-label">已拒绝</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细统计 -->
+        <div class="row g-4">
+            <!-- 通过率 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> 审批通过率</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <div class="display-1 {% if stats.approval_rate >= 80 %}text-success{% elif stats.approval_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ "%.1f"|format(stats.approval_rate) }}%
+                            </div>
+                            <p class="text-muted">
+                                {{ stats.approved }} / {{ stats.total - stats.pending }} 已处理
+                            </p>
+                        </div>
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar bg-success" style="width: {{ stats.approval_rate }}%">
+                                通过 {{ "%.1f"|format(stats.approval_rate) }}%
+                            </div>
+                            <div class="progress-bar bg-danger" style="width: {{ 100 - stats.approval_rate - (stats.pending / stats.total * 100) }}%">
+                                拒绝 {{ "%.1f"|format(100 - stats.approval_rate - (stats.pending / stats.total * 100)) }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 响应时间 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-speedometer2"></i> 平均响应时间</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <div class="display-1 text-info">
+                                {{ stats.avg_response_time_minutes|default(0)|int }}
+                            </div>
+                            <p class="text-muted">分钟</p>
+                        </div>
+                        <div class="row text-center mt-3">
+                            <div class="col">
+                                <strong>最快</strong><br>
+                                <span class="text-success">{{ stats.min_response_time|default(0)|int }} 分钟</span>
+                            </div>
+                            <div class="col">
+                                <strong>最慢</strong><br>
+                                <span class="text-danger">{{ stats.max_response_time|default(0)|int }} 分钟</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 审批员统计 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> 审批员统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>审批员</th>
+                                        <th>审批数</th>
+                                        <th>通过率</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for approver in stats.approver_stats|default([]) %}
+                                    <tr>
+                                        <td>{{ approver.name }}</td>
+                                        <td>{{ approver.count }}</td>
+                                        <td>
+                                            <span class="badge {% if approver.rate >= 80 %}bg-success{% elif approver.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {{ "%.1f"|format(approver.rate) }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 工具使用统计 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-tools"></i> 工具使用统计</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>工具名称</th>
+                                        <th>使用次数</th>
+                                        <th>通过率</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tool in stats.tool_stats|default([]) %}
+                                    <tr>
+                                        <td>
+                                            <code>{{ tool.name }}</code>
+                                        </td>
+                                        <td>{{ tool.count }}</td>
+                                        <td>
+                                            <span class="badge {% if tool.rate >= 80 %}bg-success{% elif tool.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {{ "%.1f"|format(tool.rate) }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 时间趋势 -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> 审批趋势（最近7天）</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="trendChart" class="chart-container">
+                            <canvas id="trendCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // 趋势图
+        const ctx = document.getElementById('trendCanvas').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ stats.trend_labels|default([])|tojson }},
+                datasets: [{
+                    label: '待审批',
+                    data: {{ stats.trend_pending|default([])|tojson }},
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: '已批准',
+                    data: {{ stats.trend_approved|default([])|tojson }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: '已拒绝',
+                    data: {{ stats.trend_rejected|default([])|tojson }},
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // 自动刷新
+        setInterval(() => {
+            location.reload();
+        }, 60000); // 每分钟刷新
+    </script>
+</body>
+</html>
+
+

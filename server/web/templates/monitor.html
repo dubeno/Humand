@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}审批监控 - AI Agent 审批系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3">
+                <i class="bi bi-radar"></i> 审批监控中心
+            </h1>
+            <div class="d-flex align-items-center">
+                <span id="status-badge" class="badge bg-success me-3">
+                    <i class="bi bi-wifi"></i> 已连接
+                </span>
+                <button id="toggle-sound" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-volume-up"></i> 声音开启
+                </button>
+                <button id="test-notification" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-bell"></i> 测试通知
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h2 id="pending-count" class="text-warning">{{ pending_requests|length }}</h2>
+                        <p class="card-text">待审批</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h2 id="total-today" class="text-info">0</h2>
+                        <p class="card-text">今日总数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h2 id="avg-response-time" class="text-success">-</h2>
+                        <p class="card-text">平均响应时间</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h2 id="last-check" class="text-muted">-</h2>
+                        <p class="card-text">最后检查</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 实时日志 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-list-ul"></i> 实时监控日志
+                </h6>
+                <button id="clear-log" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-trash"></i> 清空日志
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="monitor-log" class="monitor-log">
+                    <div class="log-entry text-muted">
+                        <span class="timestamp">[${new Date().toLocaleTimeString()}]</span>
+                        <span class="message">监控系统启动中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-lightning"></i> 快速操作
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="btn-group" role="group">
+                            <a href="/" class="btn btn-primary">
+                                <i class="bi bi-house"></i> 返回首页
+                            </a>
+                            <button id="refresh-now" class="btn btn-outline-primary">
+                                <i class="bi bi-arrow-clockwise"></i> 立即刷新
+                            </button>
+                            <button id="toggle-auto-refresh" class="btn btn-outline-secondary">
+                                <i class="bi bi-pause"></i> 暂停监控
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let monitoringActive = true;
+    let soundEnabled = true;
+    let lastRequestCount = {{ pending_requests|length }};
+    let checkInterval = null;
+    let notificationPermission = false;
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeMonitoring();
+        requestNotificationPermission();
+        startMonitoring();
+    });
+    
+    // 请求通知权限
+    function requestNotificationPermission() {
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then(function(permission) {
+                    notificationPermission = permission === 'granted';
+                    logMessage(notificationPermission ? '浏览器通知权限已获取' : '浏览器通知权限被拒绝', 'info');
+                });
+            } else {
+                notificationPermission = Notification.permission === 'granted';
+            }
+        }
+    }
+    
+    // 初始化监控
+    function initializeMonitoring() {
+        // 绑定事件
+        document.getElementById('toggle-sound').addEventListener('click', toggleSound);
+        document.getElementById('test-notification').addEventListener('click', testNotification);
+        document.getElementById('clear-log').addEventListener('click', clearLog);
+        document.getElementById('refresh-now').addEventListener('click', checkForNewRequests);
+        document.getElementById('toggle-auto-refresh').addEventListener('click', toggleMonitoring);
+        
+        logMessage('监控系统初始化完成', 'success');
+    }
+    
+    // 开始监控
+    function startMonitoring() {
+        if (checkInterval) clearInterval(checkInterval);
+        
+        // 立即检查一次
+        checkForNewRequests();
+        
+        // 每5秒检查一次
+        checkInterval = setInterval(checkForNewRequests, 5000);
+        
+        logMessage('开始监控审批请求 (每5秒检查一次)', 'info');
+        updateMonitoringStatus(true);
+    }
+    
+    // 停止监控
+    function stopMonitoring() {
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+        }
+        logMessage('监控已暂停', 'warning');
+        updateMonitoringStatus(false);
+    }
+    
+    // 切换监控状态
+    function toggleMonitoring() {
+        monitoringActive = !monitoringActive;
+        const button = document.getElementById('toggle-auto-refresh');
+        
+        if (monitoringActive) {
+            startMonitoring();
+            button.innerHTML = '<i class="bi bi-pause"></i> 暂停监控';
+            button.className = 'btn btn-outline-secondary';
+        } else {
+            stopMonitoring();
+            button.innerHTML = '<i class="bi bi-play"></i> 开始监控';
+            button.className = 'btn btn-outline-success';
+        }
+    }
+    
+    // 更新监控状态显示
+    function updateMonitoringStatus(isActive) {
+        const statusBadge = document.getElementById('status-badge');
+        if (isActive) {
+            statusBadge.className = 'badge bg-success me-3';
+            statusBadge.innerHTML = '<i class="bi bi-wifi"></i> 监控中';
+        } else {
+            statusBadge.className = 'badge bg-secondary me-3';
+            statusBadge.innerHTML = '<i class="bi bi-pause"></i> 已暂停';
+        }
+    }
+    
+    // 检查新的审批请求
+    async function checkForNewRequests() {
+        try {
+            const response = await fetch('/api/pending');
+            if (response.ok) {
+                const requests = await response.json();
+                const currentCount = requests.length;
+                
+                // 更新统计
+                document.getElementById('pending-count').textContent = currentCount;
+                document.getElementById('last-check').textContent = new Date().toLocaleTimeString();
+                
+                // 检查是否有新请求
+                if (currentCount > lastRequestCount) {
+                    const newRequestsCount = currentCount - lastRequestCount;
+                    handleNewRequests(newRequestsCount, requests.slice(-newRequestsCount));
+                }
+                
+                lastRequestCount = currentCount;
+                updateConnectionStatus(true);
+                
+            } else {
+                logMessage(`API请求失败: ${response.status}`, 'error');
+                updateConnectionStatus(false);
+            }
+        } catch (error) {
+            logMessage(`检查请求时出错: ${error.message}`, 'error');
+            updateConnectionStatus(false);
+        }
+    }
+    
+    // 处理新请求
+    function handleNewRequests(count, newRequests) {
+        const message = `检测到 ${count} 个新的审批请求`;
+        logMessage(message, 'warning');
+        
+        // 显示详细信息
+        newRequests.forEach(request => {
+            logMessage(`新请求: ${request.tool_name} (申请人: ${request.requester})`, 'info');
+        });
+        
+        // 发送通知
+        showNotification('新审批请求', message);
+        
+        // 播放提示音
+        if (soundEnabled) {
+            playNotificationSound();
+        }
+        
+        // 页面标题闪烁
+        blinkPageTitle(message);
+    }
+    
+    // 显示通知
+    function showNotification(title, message) {
+        // 浏览器通知
+        if (notificationPermission && 'Notification' in window) {
+            new Notification(title, {
+                body: message,
+                icon: '/static/favicon.ico',
+                tag: 'approval-monitor',
+                renotify: true
+            });
+        }
+        
+        // 页面内通知
+        showToast(message, 'warning');
+    }
+    
+    // 显示 Toast
+    function showToast(message, type = 'info') {
+        const toastContainer = getOrCreateToastContainer();
+        const toastId = 'toast-' + Date.now();
+        const bgClass = {
+            'success': 'bg-success',
+            'warning': 'bg-warning', 
+            'error': 'bg-danger',
+            'info': 'bg-primary'
+        }[type] || 'bg-primary';
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+                <div class="toast-header ${bgClass} text-white border-0">
+                    <i class="bi bi-bell-fill me-2"></i>
+                    <strong class="me-auto">监控系统</strong>
+                    <small class="text-white-50">${new Date().toLocaleTimeString()}</small>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+    
+    // 获取或创建 Toast 容器
+    function getOrCreateToastContainer() {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+        }
+        return container;
+    }
+    
+    // 播放提示音
+    function playNotificationSound() {
+        if ('AudioContext' in window || 'webkitAudioContext' in window) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+    }
+    
+    // 页面标题闪烁
+    function blinkPageTitle(message) {
+        let blinkCount = 0;
+        const originalTitle = document.title;
+        const blinkInterval = setInterval(() => {
+            document.title = blinkCount % 2 === 0 ? `🔔 ${message}` : originalTitle;
+            blinkCount++;
+            if (blinkCount >= 6) {
+                clearInterval(blinkInterval);
+                document.title = originalTitle;
+            }
+        }, 500);
+    }
+    
+    // 更新连接状态
+    function updateConnectionStatus(isConnected) {
+        const statusBadge = document.getElementById('status-badge');
+        if (isConnected) {
+            if (monitoringActive) {
+                statusBadge.className = 'badge bg-success me-3';
+                statusBadge.innerHTML = '<i class="bi bi-wifi"></i> 监控中';
+            }
+        } else {
+            statusBadge.className = 'badge bg-danger me-3';
+            statusBadge.innerHTML = '<i class="bi bi-wifi-off"></i> 连接断开';
+        }
+    }
+    
+    // 记录日志
+    function logMessage(message, type = 'info') {
+        const logContainer = document.getElementById('monitor-log');
+        const timestamp = new Date().toLocaleTimeString();
+        const iconClass = {
+            'success': 'bi-check-circle text-success',
+            'warning': 'bi-exclamation-triangle text-warning',
+            'error': 'bi-x-circle text-danger',
+            'info': 'bi-info-circle text-info'
+        }[type] || 'bi-info-circle text-info';
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+        logEntry.innerHTML = `
+            <span class="timestamp text-muted">[${timestamp}]</span>
+            <i class="bi ${iconClass} me-1"></i>
+            <span class="message">${message}</span>
+        `;
+        
+        logContainer.appendChild(logEntry);
+        
+        // 保持最新的50条日志
+        const entries = logContainer.querySelectorAll('.log-entry');
+        if (entries.length > 50) {
+            entries[0].remove();
+        }
+        
+        // 滚动到底部
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    
+    // 清空日志
+    function clearLog() {
+        document.getElementById('monitor-log').innerHTML = '';
+        logMessage('日志已清空', 'info');
+    }
+    
+    // 切换声音
+    function toggleSound() {
+        soundEnabled = !soundEnabled;
+        const button = document.getElementById('toggle-sound');
+        
+        if (soundEnabled) {
+            button.innerHTML = '<i class="bi bi-volume-up"></i> 声音开启';
+            button.className = 'btn btn-outline-secondary btn-sm me-2';
+            logMessage('提示音已开启', 'info');
+        } else {
+            button.innerHTML = '<i class="bi bi-volume-mute"></i> 声音关闭';
+            button.className = 'btn btn-outline-danger btn-sm me-2';
+            logMessage('提示音已关闭', 'info');
+        }
+    }
+    
+    // 测试通知
+    function testNotification() {
+        logMessage('测试通知功能', 'info');
+        showNotification('测试通知', '这是一个测试通知，用于验证通知功能是否正常工作');
+        
+        if (soundEnabled) {
+            playNotificationSound();
+        }
+        
+        blinkPageTitle('测试通知');
+    }
+    
+    // 页面可见性变化处理
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && monitoringActive) {
+            checkForNewRequests();
+            logMessage('页面重新激活，立即检查审批请求', 'info');
+        }
+    });
+</script>
+
+<style>
+    .monitor-log {
+        height: 300px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+    }
+    
+    .log-entry {
+        margin-bottom: 0.5rem;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .log-entry:last-child {
+        border-bottom: none;
+    }
+    
+    .timestamp {
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+    
+    .toast-container {
+        z-index: 9999 !important;
+    }
+    
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .card-body h2 {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}

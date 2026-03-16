@@ -1,0 +1,665 @@
+/* 
+ * Humand 审批系统 - Workshop 风格设计
+ * 基于 xinyu-ai 的治愈系新中式禅风设计
+ */
+
+:root {
+  /* 主色调 - Workshop 风格 */
+  --heal-white: #F5F5F0;          /* 治愈白 */
+  --earth-gray: #B8B8B8;          /* 大地灰 */
+  --earth-gray-dark: #4A4A4A;     /* 深灰 */
+  --wood-brown: #8B7355;          /* 原木棕 */
+  --hope-green: #7BA591;          /* 希望绿 */
+  --warm-orange: #D4956C;         /* 温暖橙 */
+  --deep-night: #1A1A1A;          /* 深夜黑 */
+  --card-bg: #2A2A2A;             /* 卡片背景 */
+  --success-green: #66BB6A;       /* 成功绿 */
+  --danger-red: #EF5350;          /* 危险红 */
+  --warning-yellow: #FFCA28;      /* 警告黄 */
+  --info-blue: #42A5F5;           /* 信息蓝 */
+  
+  /* 半透明色 */
+  --soft-shadow: rgba(0, 0, 0, 0.3);
+  --border-subtle: rgba(245, 245, 240, 0.08);
+  --border-light: rgba(245, 245, 240, 0.15);
+  
+  /* 渐变 */
+  --gradient-warm: linear-gradient(135deg, var(--warm-orange), var(--wood-brown));
+  --gradient-cool: linear-gradient(135deg, var(--hope-green), var(--wood-brown));
+  --gradient-success: linear-gradient(135deg, #66BB6A, #81C784);
+  --gradient-danger: linear-gradient(135deg, #EF5350, #E57373);
+  
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 30px;
+  --radius-full: 9999px;
+  
+  /* 间距 */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4rem;
+  
+  /* 阴影 */
+  --shadow-sm: 0 4px 12px var(--soft-shadow);
+  --shadow-md: 0 10px 30px var(--soft-shadow);
+  --shadow-lg: 0 20px 60px var(--soft-shadow);
+  
+  /* 过渡 */
+  --transition-fast: 0.2s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 全局样式 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--deep-night);
+  color: var(--heal-white);
+  line-height: 1.8;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-top: 80px;
+}
+
+/* 动画系统 */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 导航栏 */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: rgba(26, 26, 26, 0.98) !important;
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  letter-spacing: 3px;
+  color: var(--heal-white) !important;
+  transition: transform var(--transition-base);
+}
+
+.navbar-brand:hover {
+  transform: scale(1.02);
+}
+
+.navbar-brand i {
+  font-size: 1.5rem;
+  color: var(--warm-orange);
+}
+
+.nav-link {
+  color: var(--earth-gray) !important;
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem !important;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+.nav-link:hover {
+  color: var(--warm-orange) !important;
+  background: rgba(212, 149, 108, 0.1);
+}
+
+.nav-link i {
+  margin-right: 0.3rem;
+}
+
+/* 容器 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  animation: fadeIn 0.6s ease;
+}
+
+/* 标题 */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--heal-white);
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+
+h1.h3 {
+  font-size: 2rem;
+  margin-bottom: var(--space-lg);
+}
+
+/* 卡片系统 */
+.card {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: var(--space-lg);
+  transition: all var(--transition-slow);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-md) !important;
+  margin-bottom: var(--space-lg);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--warm-orange), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.card:hover::before {
+  transform: translateX(100%);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg) !important;
+  border-color: rgba(212, 149, 108, 0.3) !important;
+}
+
+.card-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: var(--space-md) var(--space-lg);
+  margin: calc(var(--space-lg) * -1) calc(var(--space-lg) * -1) var(--space-md);
+}
+
+.card-title {
+  color: var(--heal-white) !important;
+  font-weight: 500;
+  letter-spacing: 1px;
+  margin-bottom: 0;
+}
+
+.card-body {
+  color: var(--earth-gray);
+  padding: 0;
+}
+
+.card-footer {
+  background: transparent !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  padding: var(--space-md) var(--space-lg);
+  margin: var(--space-md) calc(var(--space-lg) * -1) calc(var(--space-lg) * -1);
+}
+
+/* 按钮系统 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--warm-orange) !important;
+  color: var(--deep-night) !important;
+  box-shadow: 0 4px 20px rgba(212, 149, 108, 0.3);
+  border: none !important;
+}
+
+.btn-primary:hover {
+  background: #E5A67D !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(212, 149, 108, 0.5);
+}
+
+.btn-success {
+  background: var(--gradient-success) !important;
+  color: var(--deep-night) !important;
+  border: none !important;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(102, 187, 106, 0.5);
+}
+
+.btn-danger {
+  background: var(--gradient-danger) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(239, 83, 80, 0.5);
+}
+
+.btn-outline-primary {
+  background: transparent !important;
+  border: 1px solid var(--warm-orange) !important;
+  color: var(--warm-orange) !important;
+}
+
+.btn-outline-primary:hover {
+  background: var(--warm-orange) !important;
+  color: var(--deep-night) !important;
+}
+
+.btn-outline-secondary {
+  background: transparent !important;
+  border: 1px solid var(--border-light) !important;
+  color: var(--earth-gray) !important;
+}
+
+.btn-outline-secondary:hover {
+  background: var(--card-bg) !important;
+  color: var(--heal-white) !important;
+  border-color: var(--warm-orange) !important;
+}
+
+.btn-sm {
+  padding: 0.625rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+/* 徽章系统 */
+.badge {
+  padding: 0.5rem 1rem !important;
+  border-radius: var(--radius-full) !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all var(--transition-base);
+}
+
+.badge.bg-warning {
+  background: var(--warning-yellow) !important;
+  color: var(--deep-night) !important;
+}
+
+.badge.bg-success {
+  background: var(--success-green) !important;
+  color: white !important;
+}
+
+.badge.bg-danger {
+  background: var(--danger-red) !important;
+  color: white !important;
+}
+
+.badge.bg-info {
+  background: var(--info-blue) !important;
+  color: white !important;
+}
+
+.badge.bg-primary {
+  background: var(--warm-orange) !important;
+  color: var(--deep-night) !important;
+}
+
+.badge.bg-secondary {
+  background: var(--earth-gray-dark) !important;
+  color: var(--heal-white) !important;
+}
+
+.badge.fs-6 {
+  font-size: 1rem !important;
+  padding: 0.625rem 1.25rem !important;
+}
+
+/* Alert 系统 */
+.alert {
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-md) !important;
+  margin-bottom: var(--space-lg);
+  animation: slideIn 0.4s ease;
+}
+
+.alert-success {
+  background: rgba(102, 187, 106, 0.15) !important;
+  color: var(--success-green) !important;
+  border-left: 4px solid var(--success-green) !important;
+}
+
+.alert-danger {
+  background: rgba(239, 83, 80, 0.15) !important;
+  color: var(--danger-red) !important;
+  border-left: 4px solid var(--danger-red) !important;
+}
+
+.alert-warning {
+  background: rgba(255, 202, 40, 0.15) !important;
+  color: var(--warning-yellow) !important;
+  border-left: 4px solid var(--warning-yellow) !important;
+}
+
+/* 表单元素 */
+.form-control {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--heal-white) !important;
+  padding: 0.875rem 1.25rem;
+  transition: all var(--transition-base);
+}
+
+.form-control:focus {
+  background: #333 !important;
+  border-color: var(--warm-orange) !important;
+  box-shadow: 0 0 0 3px rgba(212, 149, 108, 0.1) !important;
+  color: var(--heal-white) !important;
+}
+
+.form-control::placeholder {
+  color: var(--earth-gray-dark);
+}
+
+.form-label {
+  color: var(--heal-white);
+  font-weight: 500;
+  margin-bottom: var(--space-xs);
+  letter-spacing: 0.5px;
+}
+
+/* 表格 */
+.table {
+  color: var(--earth-gray) !important;
+}
+
+.table td, .table th {
+  border-color: var(--border-subtle) !important;
+  padding: 0.875rem !important;
+}
+
+.table strong {
+  color: var(--heal-white);
+}
+
+.table code {
+  background: rgba(212, 149, 108, 0.15);
+  color: var(--warm-orange);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+/* Pre & Code */
+pre {
+  background: var(--deep-night) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-md) !important;
+  overflow-x: auto;
+}
+
+pre code {
+  color: var(--hope-green) !important;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* 文本颜色 */
+.text-muted {
+  color: var(--earth-gray) !important;
+}
+
+.text-success {
+  color: var(--success-green) !important;
+}
+
+.text-danger {
+  color: var(--danger-red) !important;
+}
+
+.text-warning {
+  color: var(--warning-yellow) !important;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* 特殊样式 */
+.tool-params {
+  background: var(--deep-night);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0;
+}
+
+.approval-actions {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-top: var(--space-xl);
+}
+
+.approval-actions h5 {
+  color: var(--heal-white);
+  margin-bottom: var(--space-sm);
+  letter-spacing: 2px;
+}
+
+/* 卡片边框变体 */
+.card.border-success {
+  border: 2px solid var(--success-green) !important;
+}
+
+.card.border-danger {
+  border: 2px solid var(--danger-red) !important;
+}
+
+.card-header.bg-success {
+  background: var(--gradient-success) !important;
+  color: white !important;
+  border-bottom: none !important;
+}
+
+.card-header.bg-danger {
+  background: var(--gradient-danger) !important;
+  color: white !important;
+  border-bottom: none !important;
+}
+
+/* Toast 通知 */
+.toast-container {
+  z-index: 9999 !important;
+}
+
+.toast {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg);
+  min-width: 300px;
+}
+
+.toast-header {
+  background: var(--card-bg) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  color: var(--heal-white) !important;
+}
+
+.toast-body {
+  color: var(--earth-gray);
+}
+
+.toast.bg-success {
+  border-left: 4px solid var(--success-green) !important;
+}
+
+.toast.bg-warning {
+  border-left: 4px solid var(--warning-yellow) !important;
+}
+
+.toast.bg-primary {
+  border-left: 4px solid var(--warm-orange) !important;
+}
+
+/* 状态指示器 */
+#status-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9998;
+}
+
+#status-indicator .badge {
+  box-shadow: var(--shadow-md);
+  animation: pulse 2s infinite;
+}
+
+/* Row 间距 */
+.row {
+  margin-left: calc(var(--space-sm) * -1);
+  margin-right: calc(var(--space-sm) * -1);
+}
+
+.row > * {
+  padding-left: var(--space-sm);
+  padding-right: var(--space-sm);
+}
+
+.mb-4 {
+  margin-bottom: var(--space-lg) !important;
+}
+
+/* 空状态 */
+.text-center.py-5 {
+  padding: var(--space-2xl) 0;
+}
+
+.text-center.py-5 i {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 固定按钮 */
+button[style*="position: fixed"] {
+  background: var(--warm-orange) !important;
+  color: var(--deep-night) !important;
+  border: none !important;
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+button[style*="position: fixed"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 40px rgba(212, 149, 108, 0.5);
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--deep-night);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--card-bg);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--warm-orange);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  body {
+    padding-top: 70px;
+  }
+  
+  .container {
+    padding: 0 var(--space-md);
+  }
+  
+  h1.h3 {
+    font-size: 1.5rem;
+  }
+  
+  .card {
+    padding: var(--space-md);
+  }
+  
+  .btn {
+    padding: 0.75rem 1.5rem;
+  }
+}
+
+/* 工具类 */
+.fade-in {
+  animation: fadeIn 0.6s ease;
+}
+
+.slide-in {
+  animation: slideIn 0.6s ease;
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+

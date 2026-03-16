@@ -1,0 +1,21 @@
+# Humand 全量依赖（服务端 + SDK + 示例）
+# 开发/部署时: pip install -r requirements.txt
+# 仅 SDK:     pip install -e .
+
+# --- 服务端核心 ---
+fastapi>=0.104.0
+uvicorn>=0.24.0
+jinja2>=3.1.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+redis>=5.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+typing-extensions>=4.8.0
+
+# --- 示例 / AI 集成（可选）---
+# langgraph>=0.0.60
+# langchain-core>=0.1.52
+# langchain-openai>=0.1.8
+# openai>=1.3.0

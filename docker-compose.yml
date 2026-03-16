@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Redis 服务
+  redis:
+    image: redis:7-alpine
+    container_name: humand-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - humand-network
+
+  # Humand 服务端
+  humand-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: humand-server
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+      - APPROVAL_TIMEOUT=3600
+      - APPROVERS=admin@company.com
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - humand-network
+
+  # IM 模拟器（可选）
+  im-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+    container_name: humand-im-simulator
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    networks:
+      - humand-network
+
+networks:
+  humand-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
+

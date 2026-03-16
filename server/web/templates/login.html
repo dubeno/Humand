@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - Humand</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/humand-workshop-style.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--deep-night);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 背景装饰 */
+        .bg-decoration {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        .bg-decoration::before,
+        .bg-decoration::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .bg-decoration::before {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--warm-orange), transparent);
+            top: -300px;
+            right: -300px;
+            animation-delay: 0s;
+        }
+        
+        .bg-decoration::after {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, var(--hope-green), transparent);
+            bottom: -200px;
+            left: -200px;
+            animation-delay: 5s;
+        }
+        
+        /* 登录容器 */
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+        }
+        
+        .login-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            animation: slideUp 0.6s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-header {
+            text-align: center;
+            padding: 3rem 2rem 2rem;
+            background: linear-gradient(135deg, rgba(212, 149, 108, 0.1) 0%, transparent 100%);
+        }
+        
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--warm-orange), var(--hope-green));
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2.5rem;
+            color: var(--deep-night);
+            box-shadow: 0 10px 30px rgba(212, 149, 108, 0.3);
+        }
+        
+        .login-title {
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            color: var(--heal-white);
+            margin-bottom: 0.5rem;
+        }
+        
+        .login-subtitle {
+            font-size: 0.95rem;
+            color: var(--earth-gray);
+        }
+        
+        .login-body {
+            padding: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--earth-gray);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .input-group {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--earth-gray);
+            font-size: 1.125rem;
+            z-index: 2;
+        }
+        
+        .form-control {
+            padding: 0.875rem 1rem 0.875rem 3rem;
+            background: rgba(245, 245, 240, 0.05);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            color: var(--heal-white);
+            font-size: 0.95rem;
+            transition: all var(--transition-base);
+        }
+        
+        .form-control:focus {
+            background: rgba(245, 245, 240, 0.08);
+            border-color: var(--warm-orange);
+            box-shadow: 0 0 0 3px rgba(212, 149, 108, 0.1);
+            outline: none;
+        }
+        
+        .form-control::placeholder {
+            color: var(--earth-gray-dark);
+        }
+        
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .form-check-input {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border-subtle);
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--warm-orange);
+            border-color: var(--warm-orange);
+        }
+        
+        .form-check-label {
+            color: var(--earth-gray);
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        
+        .forgot-password {
+            color: var(--warm-orange);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color var(--transition-base);
+        }
+        
+        .forgot-password:hover {
+            color: #E5A67D;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 0.875rem;
+            background: linear-gradient(135deg, var(--warm-orange), #C88558);
+            border: none;
+            border-radius: var(--radius-md);
+            color: var(--deep-night);
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            box-shadow: 0 4px 15px rgba(212, 149, 108, 0.3);
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(212, 149, 108, 0.4);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .login-footer {
+            text-align: center;
+            padding: 1.5rem 2rem 2rem;
+            color: var(--earth-gray);
+            font-size: 0.875rem;
+        }
+        
+        .login-footer a {
+            color: var(--warm-orange);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 1.5rem 0;
+            color: var(--earth-gray);
+            font-size: 0.875rem;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .divider span {
+            padding: 0 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration"></div>
+    
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <h1 class="login-title">Humand</h1>
+                <p class="login-subtitle">让每一个决策都经过审慎思考</p>
+            </div>
+            
+            <div class="login-body">
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                {% if success %}
+                <div class="alert alert-success" role="alert">
+                    <i class="bi bi-check-circle-fill"></i>
+                    {{ success }}
+                </div>
+                {% endif %}
+                
+                <form method="post" action="/auth/login">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-person-fill"></i> 用户名
+                        </label>
+                        <div class="input-group">
+                            <i class="bi bi-person input-icon"></i>
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="username" 
+                                   placeholder="请输入用户名"
+                                   value="{{ username or '' }}"
+                                   required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="bi bi-lock-fill"></i> 密码
+                        </label>
+                        <div class="input-group">
+                            <i class="bi bi-lock input-icon"></i>
+                            <input type="password" 
+                                   class="form-control" 
+                                   name="password" 
+                                   placeholder="请输入密码"
+                                   required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group d-flex justify-content-between align-items-center">
+                        <div class="form-check">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="remember_me"
+                                   name="remember_me">
+                            <label class="form-check-label" for="remember_me">
+                                记住我
+                            </label>
+                        </div>
+                        <a href="#" class="forgot-password">忘记密码？</a>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-login">
+                        <i class="bi bi-box-arrow-in-right"></i> 登录
+                    </button>
+                </form>
+                
+                <div class="divider">
+                    <span>或</span>
+                </div>
+                
+                <a href="/auth/register" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-person-plus"></i> 注册新账户
+                </a>
+            </div>
+            
+            <div class="login-footer">
+                <p>首次使用？默认管理员账户：<strong>admin</strong> / <strong>admin123</strong></p>
+                <p class="mt-2">© 2025 Humand. 专业的审批管理系统</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+

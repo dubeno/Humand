@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}历史记录 - Humand{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header fade-in">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title">
+                <i class="bi bi-clock-history"></i> 历史记录
+            </h1>
+            <p class="page-subtitle">查看所有已完成的审批请求</p>
+        </div>
+        <div class="page-actions">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="bi bi-house-fill"></i> 返回首页
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 统计概览 -->
+<div class="stats-overview fade-in" style="animation-delay: 0.1s;">
+    <div class="stat-item">
+        <i class="bi bi-list-check"></i>
+        <div>
+            <div class="stat-value">{{ history_count }}</div>
+            <div class="stat-label">总记录数</div>
+        </div>
+    </div>
+    <div class="stat-item">
+        <i class="bi bi-check-circle-fill"></i>
+        <div>
+            <div class="stat-value">{{ approval_rate }}%</div>
+            <div class="stat-label">通过率</div>
+        </div>
+    </div>
+    <div class="stat-item">
+        <i class="bi bi-funnel-fill"></i>
+        <div>
+            <div class="stat-value">{{ tools|length }}</div>
+            <div class="stat-label">工具类型</div>
+        </div>
+    </div>
+</div>
+
+<!-- 历史记录列表 -->
+<div class="history-container fade-in" style="animation-delay: 0.2s;">
+    {% if history_items %}
+        <div class="history-list">
+            {% for item in history_items %}
+            <div class="history-item">
+                <div class="history-timeline">
+                    <div class="timeline-dot 
+                        {% if item.status == 'approved' %}timeline-success
+                        {% elif item.status == 'rejected' %}timeline-danger
+                        {% else %}timeline-neutral{% endif %}">
+                    </div>
+                    <div class="timeline-line"></div>
+                </div>
+                
+                <div class="history-card">
+                    <div class="history-header">
+                        <div class="history-icon">
+                            <i class="bi bi-gear-fill"></i>
+                        </div>
+                        <div class="history-info">
+                            <h3 class="history-title">{{ item.tool_name }}</h3>
+                            <div class="history-meta">
+                                <span class="meta-item">
+                                    <i class="bi bi-person-fill"></i>
+                                    {{ item.requester }}
+                                </span>
+                                <span class="meta-divider">•</span>
+                                <span class="meta-item">
+                                    <i class="bi bi-calendar3"></i>
+                                    {{ item.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="history-status">
+                            {% if item.status == 'approved' %}
+                                <span class="status-badge status-approved">
+                                    <i class="bi bi-check-circle-fill"></i> 已批准
+                                </span>
+                            {% elif item.status == 'rejected' %}
+                                <span class="status-badge status-rejected">
+                                    <i class="bi bi-x-circle-fill"></i> 已拒绝
+                                </span>
+                            {% elif item.status == 'timeout' %}
+                                <span class="status-badge status-timeout">
+                                    <i class="bi bi-clock-history"></i> 已超时
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="history-body">
+                        <div class="history-reason">
+                            <span class="reason-label">
+                                <i class="bi bi-chat-left-text-fill"></i> 申请原因
+                            </span>
+                            <span class="reason-text">{{ item.reason }}</span>
+                        </div>
+                        
+                        {% if item.approver %}
+                        <div class="history-approver">
+                            <span class="approver-label">审批人</span>
+                            <span class="approver-name">{{ item.approver }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="history-footer">
+                        <a href="/approval/{{ item.request_id }}" class="btn-link">
+                            <i class="bi bi-eye-fill"></i> 查看详情
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页 -->
+        {% if total_pages > 1 %}
+        <div class="pagination-container">
+            <nav class="pagination">
+                {% if current_page > 1 %}
+                    <a href="/history?page={{ current_page - 1 }}" class="pagination-btn">
+                        <i class="bi bi-chevron-left"></i> 上一页
+                    </a>
+                {% endif %}
+                
+                <span class="pagination-info">
+                    第 {{ current_page }} / {{ total_pages }} 页
+                </span>
+                
+                {% if current_page < total_pages %}
+                    <a href="/history?page={{ current_page + 1 }}" class="pagination-btn">
+                        下一页 <i class="bi bi-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon float">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h3 class="empty-title">暂无历史记录</h3>
+            <p class="empty-desc">还没有任何已完成的审批请求</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* 统计概览 */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-item > i {
+    font-size: 2rem;
+    color: var(--warm-orange);
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--heal-white);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--earth-gray);
+    margin-top: 0.25rem;
+}
+
+/* 历史记录容器 */
+.history-container {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+}
+
+/* 历史记录列表 */
+.history-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.history-item {
+    display: flex;
+    gap: 1.5rem;
+    position: relative;
+}
+
+.history-item:last-child .timeline-line {
+    display: none;
+}
+
+/* 时间线 */
+.history-timeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.timeline-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid var(--card-bg);
+    box-shadow: 0 0 0 2px;
+    flex-shrink: 0;
+    z-index: 1;
+}
+
+.timeline-success {
+    background: var(--success-green);
+    box-shadow: 0 0 0 2px var(--success-green);
+}
+
+.timeline-danger {
+    background: var(--danger-red);
+    box-shadow: 0 0 0 2px var(--danger-red);
+}
+
+.timeline-neutral {
+    background: var(--earth-gray);
+    box-shadow: 0 0 0 2px var(--earth-gray);
+}
+
+.timeline-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border-subtle);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* 历史卡片 */
+.history-card {
+    flex: 1;
+    background: rgba(245, 245, 240, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.history-card:hover {
+    border-color: var(--warm-orange);
+    transform: translateX(5px);
+    box-shadow: var(--shadow-md);
+}
+
+.history-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.history-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: rgba(212, 149, 108, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--warm-orange);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.history-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--heal-white);
+    margin: 0 0 0.5rem 0;
+}
+
+.history-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--earth-gray);
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.meta-divider {
+    color: var(--earth-gray-dark);
+}
+
+.history-status {
+    flex-shrink: 0;
+}
+
+.history-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.history-reason {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.reason-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--earth-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.reason-text {
+    color: var(--heal-white);
+    font-size: 0.9rem;
+}
+
+.history-approver {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.approver-label {
+    color: var(--earth-gray);
+}
+
+.approver-name {
+    padding: 0.25rem 0.75rem;
+    background: rgba(123, 165, 145, 0.15);
+    border-radius: var(--radius-full);
+    color: var(--hope-green);
+}
+
+.history-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--warm-orange);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color var(--transition-base);
+}
+
+.btn-link:hover {
+    color: #E5A67D;
+}
+
+/* 分页 */
+.pagination-container {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1.25rem;
+    background: rgba(212, 149, 108, 0.1);
+    border: 1px solid var(--warm-orange);
+    border-radius: var(--radius-full);
+    color: var(--warm-orange);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all var(--transition-base);
+}
+
+.pagination-btn:hover {
+    background: var(--warm-orange);
+    color: var(--deep-night);
+    transform: translateY(-2px);
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: var(--earth-gray);
+    padding: 0 1rem;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .history-item {
+        gap: 1rem;
+    }
+    
+    .history-header {
+        flex-direction: column;
+    }
+    
+    .history-status {
+        align-self: flex-start;
+    }
+    
+    .stats-overview {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
