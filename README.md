@@ -4,6 +4,29 @@ Human-in-the-loop approvals for AI agents and Python workflows.
 
 Humand started as a lightweight approval decorator. It now also exposes a server-side notification provider layer, so approval requests can be delivered into interactive inbox channels such as Feishu while keeping the SDK API stable.
 
+## Run The Local Demo In 1 Command
+
+```bash
+make demo
+```
+
+`make demo` copies `env.example` to `.env` if needed, starts Redis, the FastAPI server, the local simulator inbox, and a demo runner that seeds an approval automatically.
+
+Open these URLs once the stack is healthy:
+
+- Simulator inbox: `http://localhost:5000`
+- Humand API docs: `http://localhost:8000/docs`
+- Optional authenticated Web UI: `http://localhost:8000` with `admin / humand-demo`
+
+What you should see:
+
+1. A seeded approval titled `Approve the Humand local demo rollout`
+2. Approve or reject buttons directly inside the local simulator inbox
+3. The approval status updating in place after your decision
+4. If you approve, staged progress updates appearing on the same request
+
+The default demo path is simulator-first and requires no Feishu credentials or external API keys. Feishu support still works, but it is optional for first-run evaluation.
+
 ## What You Get
 
 - Python SDK with `@require_approval`
@@ -19,6 +42,8 @@ pip install -r requirements.txt
 pip install -e .
 python server/main.py
 ```
+
+For the Dockerized reviewer experience, `make demo` is the intended first-run path. If you prefer the raw Compose command, `docker compose up --build` now starts the same simulator-first local demo stack.
 
 ```python
 from humand_sdk import require_approval
@@ -40,6 +65,8 @@ def delete_workspace(workspace_id: str):
 - `wechat`: webhook notifications
 - `dingtalk`: webhook notifications
 - `simulator`: local fallback when no real provider is configured
+
+For the local demo, the simulator is now a real approval inbox. It receives the seeded request, lets you approve or reject it locally, and mirrors progress updates without requiring any external channel setup.
 
 ## Architecture
 
@@ -91,6 +118,7 @@ Notes:
 - `FEISHU_RECEIVE_ID` is the chat or user identifier Humand should deliver cards to.
 - `FEISHU_RECEIVE_ID_TYPE=chat_id` is the simplest shared-inbox setup.
 - If Feishu is not configured, Humand still works and falls back to the local simulator.
+- Feishu is not required for the default local demo path.
 
 ## Progress Updates
 
@@ -118,6 +146,8 @@ See `examples/feishu_approval_flow.py` for a minimal end-to-end flow:
 2. Deliver it to Feishu
 3. Wait for approval or rejection
 4. Emit progress updates while the task runs
+
+For the local reviewer flow, use `examples/local_demo_flow.py`. It targets the simulator explicitly, waits for the server to become healthy, seeds a pending approval automatically, and can continue into progress updates after approval.
 
 ## Local Callback Testing
 
@@ -151,6 +181,14 @@ In development mode, you can query `GET /api/v1/approvals/{id}` and inspect `pro
 
 ```bash
 python3 -m pytest tests -q
+```
+
+Useful local demo commands:
+
+```bash
+make demo
+make demo-down
+make demo-reset
 ```
 
 Key files:

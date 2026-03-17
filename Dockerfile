@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制项目文件
 COPY server/ ./server/
 COPY humand_sdk/ ./humand_sdk/
+COPY examples/ ./examples/
 COPY setup.py .
 COPY README.md .
 

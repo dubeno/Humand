@@ -4,6 +4,7 @@ These scripts show how to use Humand from plain Python and LangGraph-style workf
 
 ## Available Examples
 
+- `local_demo_flow.py`: one-click local demo seeding plus approval/progress flow through the simulator inbox
 - `basic_function_approval.py`: minimal `@require_approval` usage
 - `feishu_approval_flow.py`: server-backed approval plus Feishu progress updates
 - `langgraph_complete_example.py`: full workflow example
@@ -21,9 +22,12 @@ python server/main.py
 Then run an example:
 
 ```bash
+python examples/local_demo_flow.py
 python examples/basic_function_approval.py
 python examples/feishu_approval_flow.py
 ```
+
+If you want the fully seeded reviewer experience without a second terminal, prefer `make demo` from the repo root. That starts Docker Compose, seeds the approval automatically, and routes everything through the local simulator inbox at `http://localhost:5000`.
 
 ## Feishu Example
 

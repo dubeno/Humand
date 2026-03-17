@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Redis 服务
   redis:
     image: redis:7-alpine
     container_name: humand-redis
@@ -19,22 +18,27 @@ services:
     networks:
       - humand-network
 
-  # Humand 服务端
   humand-server:
     build:
       context: .
       dockerfile: Dockerfile
+    image: humand-local-demo:latest
     container_name: humand-server
+    command: ["python", "-m", "uvicorn", "server.web.app:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-      - WEB_HOST=0.0.0.0
-      - WEB_PORT=8000
-      - APPROVAL_TIMEOUT=3600
-      - APPROVERS=admin@company.com
+      HUMAND_ENV: development
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 8000
+      HUMAND_PUBLIC_BASE_URL: http://localhost:8000
+      HUMAND_SIMULATOR_URL: http://im-simulator:5000
+      HUMAND_BOOTSTRAP_ADMIN_PASSWORD: humand-demo
+      APPROVAL_TIMEOUT: 3600
+      APPROVERS: local-reviewer@humand.local
     depends_on:
       redis:
         condition: service_healthy
@@ -50,7 +54,6 @@ services:
     networks:
       - humand-network
 
-  # IM 模拟器（可选）
   im-simulator:
     build:
       context: .
@@ -59,8 +62,48 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - FLASK_ENV=production
+      FLASK_ENV: production
+      HUMAND_SERVER_URL: http://humand-server:8000
+      HUMAND_PUBLIC_SERVER_URL: http://localhost:8000
+      HUMAND_SIMULATOR_APPROVER: Local Demo Reviewer
+      HUMAND_DEMO_WEB_LOGIN: admin / humand-demo
+    depends_on:
+      humand-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+    networks:
+      - humand-network
+
+  humand-demo-runner:
+    image: humand-local-demo:latest
+    container_name: humand-demo-runner
+    command:
+      [
+        "python",
+        "examples/local_demo_flow.py",
+        "--base-url",
+        "http://humand-server:8000",
+        "--simulator-url",
+        "http://im-simulator:5000",
+        "--public-base-url",
+        "http://localhost:8000",
+        "--public-simulator-url",
+        "http://localhost:5000"
+      ]
+    environment:
+      HUMAND_API_KEY: ""
+      HUMAND_DEMO_WEB_LOGIN: admin / humand-demo
+    depends_on:
+      humand-server:
+        condition: service_healthy
+      im-simulator:
+        condition: service_healthy
+    restart: "no"
     networks:
       - humand-network
 
@@ -71,4 +114,3 @@ networks:
 volumes:
   redis-data:
     driver: local
-

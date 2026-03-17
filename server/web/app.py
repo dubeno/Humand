@@ -35,6 +35,7 @@ def serialize_approval_request(approval_request: ApprovalRequest) -> dict:
         "id": approval_request.request_id,
         "title": approval_request.tool_name,
         "description": approval_request.reason,
+        "requester": approval_request.requester,
         "status": approval_request.status.value,
         "approvers": approval_request.approvers,
         "created_at": approval_request.created_at.isoformat(),
@@ -46,6 +47,9 @@ def serialize_approval_request(approval_request: ApprovalRequest) -> dict:
         "progress_updates": approval_request.progress_updates,
         "notification_channels": approval_request.notification_channels,
         "web_url": f"{config.get_public_base_url()}/approval/{approval_request.request_id}",
+        "api_url": f"{config.get_public_base_url()}/api/v1/approvals/{approval_request.request_id}",
+        "timeout_seconds": approval_request.timeout_seconds,
+        "approval_comment": approval_request.approval_comment,
     }
     if config.ENV == "development":
         payload["provider_metadata"] = approval_request.provider_metadata
@@ -326,6 +330,33 @@ async def create_approval_api(approval_data: dict, _=Depends(require_api_key)):
         return serialize_approval_request(approval_request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建审批请求失败: {str(e)}")
+
+
+@app.get("/api/v1/approvals")
+async def list_approval_requests(
+    status: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+    _=Depends(require_api_key),
+):
+    """API: 列出审批请求"""
+    approvals = approval_storage.get_all_approvals(limit=max(limit + offset, limit, 1))
+
+    if status:
+        approvals = [
+            approval
+            for approval in approvals
+            if approval.status.value == status.strip().lower()
+        ]
+
+    total = len(approvals)
+    page_items = approvals[offset : offset + limit]
+    return {
+        "items": [serialize_approval_request(item) for item in page_items],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 @app.get("/api/v1/approvals/{request_id}")
 async def get_approval_request(request_id: str, _=Depends(require_api_key)):

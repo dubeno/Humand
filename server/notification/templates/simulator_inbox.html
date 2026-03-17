@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humand Local Inbox</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --page-bg: #f5f7fb;
+            --card-border: rgba(15, 23, 42, 0.08);
+            --card-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+            --text-soft: #526072;
+        }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28rem),
+                radial-gradient(circle at right, rgba(34, 197, 94, 0.08), transparent 24rem),
+                var(--page-bg);
+            color: #122033;
+        }
+
+        .hero-card,
+        .summary-card,
+        .approval-card,
+        .sidebar-card,
+        .raw-card {
+            border: 1px solid var(--card-border);
+            box-shadow: var(--card-shadow);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .hero-card {
+            overflow: hidden;
+        }
+
+        .hero-card .hero-strip {
+            height: 6px;
+            background: linear-gradient(90deg, #0ea5e9, #22c55e, #f59e0b);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(14, 165, 233, 0.12);
+            color: #0369a1;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .summary-label {
+            color: var(--text-soft);
+            font-size: 0.92rem;
+        }
+
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .approval-card {
+            border-left: 8px solid #f59e0b;
+        }
+
+        .approval-card.status-approved {
+            border-left-color: #22c55e;
+        }
+
+        .approval-card.status-rejected {
+            border-left-color: #ef4444;
+        }
+
+        .approval-card.status-timeout {
+            border-left-color: #64748b;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-radius: 999px;
+            padding: 0.45rem 0.8rem;
+            font-weight: 600;
+            font-size: 0.86rem;
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.14);
+            color: #b45309;
+        }
+
+        .status-success {
+            background: rgba(34, 197, 94, 0.14);
+            color: #15803d;
+        }
+
+        .status-danger {
+            background: rgba(239, 68, 68, 0.14);
+            color: #b91c1c;
+        }
+
+        .status-secondary {
+            background: rgba(100, 116, 139, 0.16);
+            color: #475569;
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+            background: #eef4fb;
+            color: #304256;
+            font-size: 0.82rem;
+            margin: 0 0.4rem 0.4rem 0;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+            gap: 0.85rem;
+        }
+
+        .metadata-item {
+            padding: 0.85rem 1rem;
+            border-radius: 14px;
+            background: #f8fbff;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .metadata-label {
+            color: var(--text-soft);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metadata-value {
+            margin-top: 0.25rem;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .timeline-item {
+            padding-left: 1rem;
+            border-left: 2px solid rgba(14, 165, 233, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-stage {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #0f766e;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .timeline-time {
+            color: var(--text-soft);
+            font-size: 0.82rem;
+        }
+
+        .decision-form textarea {
+            min-height: 4.5rem;
+        }
+
+        .raw-message {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 16px;
+            padding: 1rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .small-muted {
+            color: var(--text-soft);
+            font-size: 0.92rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4 py-lg-5">
+        <div class="hero-card mb-4">
+            <div class="hero-strip"></div>
+            <div class="p-4 p-lg-5">
+                <div class="d-flex flex-column flex-lg-row justify-content-between gap-4 align-items-start">
+                    <div>
+                        <span class="eyebrow mb-3">
+                            <i class="bi bi-mouse"></i>
+                            One-click local demo
+                        </span>
+                        <h1 class="display-6 fw-semibold mb-3">Humand Local Inbox</h1>
+                        <p class="lead mb-3">
+                            Review the seeded approval below, approve or reject it directly in this browser,
+                            and watch Humand sync the resulting state back into the same inbox.
+                        </p>
+                        <div class="small-muted">
+                            No external API keys required. Feishu support stays available, but the demo path stays local by default.
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-primary" href="{{ public_server_url }}/docs" target="_blank" rel="noreferrer">
+                            <i class="bi bi-journal-code"></i>
+                            Open API docs
+                        </a>
+                        <a class="btn btn-outline-secondary" href="{{ public_server_url }}" target="_blank" rel="noreferrer">
+                            <i class="bi bi-window"></i>
+                            Open Humand Web UI
+                        </a>
+                        {% if demo_web_login %}
+                        <div class="small-muted">Optional Web UI login: {{ demo_web_login }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if current_error %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ current_error }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        {% if current_message %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ current_message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+                <div class="summary-card p-3 h-100">
+                    <div class="summary-label">Pending</div>
+                    <div class="summary-value text-warning">{{ summary.pending }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="summary-card p-3 h-100">
+                    <div class="summary-label">Approved</div>
+                    <div class="summary-value text-success">{{ summary.approved }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="summary-card p-3 h-100">
+                    <div class="summary-label">Rejected</div>
+                    <div class="summary-value text-danger">{{ summary.rejected }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="summary-card p-3 h-100">
+                    <div class="summary-label">Synced cards</div>
+                    <div class="summary-value">{{ summary.total }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                {% if approvals %}
+                    {% for approval in approvals %}
+                    <div class="approval-card status-{{ approval.status }} p-4 mb-4">
+                        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-start">
+                            <div>
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                    <span class="status-pill status-{{ approval.badge_class }}">
+                                        <i class="bi bi-circle-fill small"></i>
+                                        {{ approval.status_label }}
+                                    </span>
+                                    <span class="meta-chip"><i class="bi bi-person"></i> {{ approval.requester }}</span>
+                                    {% for approver in approval.approvers %}
+                                    <span class="meta-chip"><i class="bi bi-check2-square"></i> {{ approver }}</span>
+                                    {% endfor %}
+                                </div>
+                                <h2 class="h4 mb-2">{{ approval.title }}</h2>
+                                <p class="mb-2">{{ approval.description }}</p>
+                                <div class="small-muted">
+                                    Created {{ approval.created_at_display }} · Last synced {{ approval.updated_at_display }}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ approval.api_url }}" target="_blank" rel="noreferrer">
+                                    <i class="bi bi-code-square"></i>
+                                    Raw JSON
+                                </a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ approval.web_url }}" target="_blank" rel="noreferrer">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                    Humand UI
+                                </a>
+                            </div>
+                        </div>
+
+                        {% if approval.metadata_items %}
+                        <div class="metadata-grid mt-4">
+                            {% for item in approval.metadata_items %}
+                            <div class="metadata-item">
+                                <div class="metadata-label">{{ item.key }}</div>
+                                <div class="metadata-value">{{ item.value }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if approval.last_progress_percent is not none %}
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong>Progress</strong>
+                                <span class="small-muted">{{ approval.last_progress_percent }}%</span>
+                            </div>
+                            <div class="progress" style="height: 0.75rem;">
+                                <div
+                                    class="progress-bar bg-info"
+                                    role="progressbar"
+                                    style="width: {{ approval.last_progress_percent }}%;"
+                                    aria-valuenow="{{ approval.last_progress_percent }}"
+                                    aria-valuemin="0"
+                                    aria-valuemax="100"
+                                ></div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if approval.progress_items %}
+                        <div class="mt-4">
+                            <h3 class="h6 mb-3">Progress timeline</h3>
+                            {% for update in approval.progress_items %}
+                            <div class="timeline-item">
+                                {% if update.stage %}
+                                <div class="timeline-stage">{{ update.stage }}</div>
+                                {% endif %}
+                                <div class="fw-semibold">{{ update.message }}</div>
+                                <div class="timeline-time">
+                                    {{ update.created_at_display }}
+                                    {% if update.progress_percent is not none %}
+                                    · {{ update.progress_percent }}%
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if approval.status == "pending" %}
+                        <div class="mt-4 pt-4 border-top">
+                            <h3 class="h6 mb-3">Review locally</h3>
+                            <form class="decision-form" method="post" action="/approvals/{{ approval.id }}/approve">
+                                <div class="row g-3">
+                                    <div class="col-lg-4">
+                                        <label class="form-label">Approver label</label>
+                                        <input class="form-control" name="approver" value="{{ default_approver }}">
+                                    </div>
+                                    <div class="col-lg-8">
+                                        <label class="form-label">Optional comment</label>
+                                        <textarea class="form-control" name="comment" placeholder="Looks good for the local demo."></textarea>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column flex-sm-row gap-2 mt-3">
+                                    <button class="btn btn-success" type="submit">
+                                        <i class="bi bi-check-circle"></i>
+                                        Approve locally
+                                    </button>
+                                    <button
+                                        class="btn btn-outline-danger"
+                                        type="submit"
+                                        formaction="/approvals/{{ approval.id }}/reject"
+                                    >
+                                        <i class="bi bi-x-circle"></i>
+                                        Reject locally
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="mt-4 pt-4 border-top">
+                            <h3 class="h6 mb-2">Decision summary</h3>
+                            <div class="small-muted">{{ approval.decision_summary }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="approval-card p-5 text-center">
+                    <div class="display-6 mb-3 text-secondary">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <h2 class="h4 mb-2">Waiting for the first seeded approval</h2>
+                    <p class="small-muted mb-0">
+                        The demo runner will create a local approval automatically once Humand is ready.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-lg-4">
+                <div class="sidebar-card p-4 mb-4">
+                    <h2 class="h5 mb-3">How to inspect the demo</h2>
+                    <div class="small-muted mb-3">
+                        1. Open the seeded request in this inbox.
+                        <br>
+                        2. Approve it to let the demo runner continue.
+                        <br>
+                        3. Watch Humand update the same card with progress.
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-outline-primary" href="{{ public_server_url }}/docs" target="_blank" rel="noreferrer">
+                            <i class="bi bi-braces"></i>
+                            Browse the API
+                        </a>
+                        <a class="btn btn-outline-secondary" href="{{ public_server_url }}" target="_blank" rel="noreferrer">
+                            <i class="bi bi-window-stack"></i>
+                            Open Humand Web UI
+                        </a>
+                    </div>
+                </div>
+
+                <div class="sidebar-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h5 mb-0">Developer hooks</h2>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearRawMessages()">
+                            <i class="bi bi-trash"></i>
+                            Clear raw events
+                        </button>
+                    </div>
+                    <p class="small-muted">
+                        The simulator still accepts generic webhook traffic, so you can keep using it for local provider debugging too.
+                    </p>
+                    <label class="form-label mt-3">Create a webhook endpoint</label>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" id="platformSelect">
+                            <option value="wechat">wechat</option>
+                            <option value="feishu">feishu</option>
+                            <option value="dingtalk">dingtalk</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="createWebhook()">Create</button>
+                    </div>
+                    {% if messages %}
+                    <div class="mt-4">
+                        <h3 class="h6 mb-3">Raw provider events</h3>
+                        {% for message in messages %}
+                        <div class="raw-card p-3 mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="meta-chip">{{ message.platform }}</span>
+                                <span class="small-muted">{{ message.timestamp.strftime('%H:%M:%S') }}</span>
+                            </div>
+                            <div class="raw-message">{{ message.content }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function createWebhook() {
+            const platform = document.getElementById('platformSelect').value;
+            const response = await fetch('/api/webhook/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform })
+            });
+            const data = await response.json();
+            alert('Webhook created:\\n' + data.webhook_url);
+            location.reload();
+        }
+
+        async function clearRawMessages() {
+            await fetch('/api/clear', { method: 'POST' });
+            location.reload();
+        }
+
+        setInterval(() => {
+            location.reload();
+        }, 4000);
+    </script>
+</body>
+</html>

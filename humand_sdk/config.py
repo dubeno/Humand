@@ -19,6 +19,7 @@ class NotificationChannel(str, Enum):
     WECHAT = "wechat"
     FEISHU = "feishu"
     DINGTALK = "dingtalk"
+    SIMULATOR = "simulator"
 
 
 class ApprovalType(str, Enum):

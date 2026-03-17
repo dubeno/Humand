@@ -162,10 +162,9 @@ class SimulatorProvider(NotificationProvider):
         return True
 
     def _post(self, payload: Dict[str, Any]) -> bool:
-        webhook_url = f"{self.simulator_url}/webhook/feishu/default-webhook"
         try:
             response = requests.post(
-                webhook_url,
+                f"{self.simulator_url}/api/inbox/sync",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=10,
@@ -174,51 +173,70 @@ class SimulatorProvider(NotificationProvider):
         except Exception:
             return False
 
+    def _snapshot(self, request: ApprovalRequest) -> Dict[str, Any]:
+        return {
+            "id": request.request_id,
+            "title": request.tool_name,
+            "description": request.reason,
+            "requester": request.requester,
+            "status": request.status.value,
+            "approvers": request.approvers,
+            "created_at": request.created_at.isoformat(),
+            "updated_at": request.updated_at.isoformat(),
+            "approved_by": request.approved_by,
+            "rejected_by": request.rejected_by,
+            "comments": request.comments,
+            "metadata": request.tool_params,
+            "progress_updates": request.progress_updates,
+            "notification_channels": request.notification_channels,
+            "approval_comment": request.approval_comment,
+            "timeout_seconds": request.timeout_seconds,
+            "web_url": self.approval_url(request),
+            "api_url": (
+                f"{config.get_public_base_url().rstrip('/')}/api/v1/approvals/{request.request_id}"
+            ),
+        }
+
     def send_approval_request(self, request: ApprovalRequest) -> bool:
         content = {
-            "msg_type": "interactive",
-            "card": {
-                "header": {"title": {"tag": "plain_text", "content": f"Approval: {request.tool_name}"}},
-                "elements": [
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "lark_md",
-                            "content": (
-                                f"**Requester**: {request.requester}\n"
-                                f"**Reason**: {request.reason}\n"
-                                f"[Open in Humand]({self.approval_url(request)})"
-                            ),
-                        },
-                    }
-                ],
-            },
+            "event": "approval.created",
+            "approval": self._snapshot(request),
         }
         success = self._post(content)
         self.set_metadata(request, status="sent" if success else "failed")
         return success
 
     def send_progress_update(self, request: ApprovalRequest, update: Dict[str, Any]) -> bool:
-        content = {
-            "msg_type": "text",
-            "content": {
-                "text": f"{request.tool_name}: {update['message']}",
-            },
-        }
-        return self._post(content)
+        success = self._post(
+            {
+                "event": "approval.progress",
+                "approval": self._snapshot(request),
+            }
+        )
+        self.set_metadata(
+            request,
+            status="updated" if success else "failed",
+            last_error=None if success else "progress_sync_failed",
+        )
+        return success
 
     def update_approval_status(self, request: ApprovalRequest) -> bool:
-        content = {
-            "msg_type": "text",
-            "content": {
-                "text": f"{request.tool_name} is now {self.status_label(request)}",
-            },
-        }
-        return self._post(content)
+        success = self._post(
+            {
+                "event": "approval.updated",
+                "approval": self._snapshot(request),
+            }
+        )
+        self.set_metadata(
+            request,
+            status=request.status.value if success else "failed",
+            last_error=None if success else "status_sync_failed",
+        )
+        return success
 
     def test_connection(self) -> bool:
         try:
-            response = requests.get(f"{self.simulator_url}/api/messages", timeout=5)
+            response = requests.get(f"{self.simulator_url}/health", timeout=5)
             return response.status_code == 200
         except Exception:
             return False
@@ -365,18 +383,27 @@ class MultiPlatformNotifier:
         return configured
 
     def _resolve_providers(self, channels: Optional[List[str]] = None) -> List[NotificationProvider]:
-        configured = self._configured_providers()
         normalized_channels = [channel.strip().lower() for channel in (channels or []) if channel]
 
         if normalized_channels:
-            matched = [
-                provider
-                for provider in configured
-                if any(provider.supports_channel(channel) for channel in normalized_channels)
-            ]
+            matched: List[NotificationProvider] = []
+            for channel in normalized_channels:
+                provider = self.providers.get(channel)
+                if not provider:
+                    continue
+                if channel == PlatformType.SIMULATOR.value or provider.is_configured():
+                    matched.append(provider)
             if matched:
-                return matched
+                deduped: List[NotificationProvider] = []
+                seen = set()
+                for provider in matched:
+                    if provider.name in seen:
+                        continue
+                    deduped.append(provider)
+                    seen.add(provider.name)
+                return deduped
 
+        configured = self._configured_providers()
         if configured:
             return configured
 

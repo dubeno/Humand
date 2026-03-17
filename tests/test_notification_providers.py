@@ -116,6 +116,20 @@ class TestNotificationProviders:
         assert feishu.approval_calls == 1
         assert simulator.approval_calls == 0
 
+    def test_explicit_simulator_channel_overrides_configured_provider(self):
+        notifier = MultiPlatformNotifier()
+        feishu = DummyProvider("feishu")
+        simulator = DummyProvider("simulator")
+        notifier.providers = {
+            "feishu": feishu,
+            "simulator": simulator,
+        }
+
+        request = make_request(notification_channels=["simulator"])
+        assert notifier.send_approval_request(request) is True
+        assert simulator.approval_calls == 1
+        assert feishu.approval_calls == 0
+
     def test_falls_back_to_simulator_when_no_configured_provider(self):
         notifier = MultiPlatformNotifier()
         simulator = DummyProvider("simulator")
