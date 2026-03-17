@@ -103,6 +103,29 @@ class TestMemoryStorage:
         updated = storage.get_approval_request(sample_request.request_id)
         assert updated.status == ApprovalStatus.REJECTED
         assert "admin@test.com" in updated.rejected_by
+
+    def test_reject_after_approval_is_ignored(self, storage, sample_request):
+        """测试终态后拒绝不会覆盖已批准结果"""
+        storage.save_approval_request(sample_request)
+
+        assert storage.update_approval_status(
+            sample_request.request_id,
+            ApprovalStatus.APPROVED,
+            approver="admin@test.com",
+            comment="Approved",
+        ) is True
+
+        assert storage.update_approval_status(
+            sample_request.request_id,
+            ApprovalStatus.REJECTED,
+            approver="reviewer@test.com",
+            comment="Too late",
+        ) is False
+
+        updated = storage.get_approval_request(sample_request.request_id)
+        assert updated.status == ApprovalStatus.APPROVED
+        assert "admin@test.com" in updated.approved_by
+        assert "reviewer@test.com" not in updated.rejected_by
     
     def test_delete_request(self, storage, sample_request):
         """测试删除请求"""
@@ -212,5 +235,4 @@ class TestMemoryStorage:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
 

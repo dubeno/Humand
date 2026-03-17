@@ -76,11 +76,19 @@ def check_dependencies():
         print(f"   ✅ 配置加载成功")
         print(f"   📋 审批超时: {config.APPROVAL_TIMEOUT // 60} 分钟")
         print(f"   👥 审批员: {', '.join(config.get_approvers())}")
+        print(f"   🌍 对外地址: {config.get_public_base_url()}")
         
         if config.WECHAT_WEBHOOK_URL:
             print(f"   ✅ 企业微信已配置")
         else:
             print(f"   ⚠️ 企业微信未配置，将使用模拟器")
+
+        if config.FEISHU_APP_ID and config.FEISHU_APP_SECRET and config.FEISHU_RECEIVE_ID:
+            print(f"   ✅ 飞书交互卡片已配置")
+        elif config.FEISHU_WEBHOOK_URL:
+            print(f"   ⚠️ 飞书仅配置了 webhook，将以简化消息模式运行")
+        else:
+            print(f"   ⚠️ 飞书未配置")
             
     except Exception as e:
         print(f"   ❌ 配置加载失败: {e}")

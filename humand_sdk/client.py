@@ -38,6 +38,9 @@ class ApprovalRequest:
         self.rejected_by = data.get("rejected_by", [])
         self.comments = data.get("comments", [])
         self.metadata = data.get("metadata", {})
+        self.progress_updates = data.get("progress_updates", [])
+        self.notification_channels = data.get("notification_channels", [])
+        self.provider_metadata = data.get("provider_metadata", {})
         self.web_url = data.get("web_url")
         
     @property
@@ -206,6 +209,27 @@ class HumandClient:
             ApprovalRequest object
         """
         response_data = self._make_request("GET", f"/api/v1/approvals/{approval_id}")
+        return ApprovalRequest(response_data)
+
+    def send_progress_update(
+        self,
+        approval_id: str,
+        message: str,
+        progress_percent: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        stage: Optional[str] = None,
+    ) -> ApprovalRequest:
+        """Send a progress update associated with an approval request."""
+        response_data = self._make_request(
+            "POST",
+            f"/api/v1/approvals/{approval_id}/progress",
+            {
+                "message": message,
+                "progress_percent": progress_percent,
+                "stage": stage,
+                "metadata": metadata or {},
+            },
+        )
         return ApprovalRequest(response_data)
     
     def wait_for_approval(self, approval_id: str, 

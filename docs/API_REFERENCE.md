@@ -33,6 +33,14 @@ request = client.create_approval(config, context={})
 # Wait for approval
 result = client.wait_for_approval(request.id, poll_interval=5)
 
+# Send a progress update after approval
+client.send_progress_update(
+    request.id,
+    "Deploying canary",
+    progress_percent=50,
+    stage="deploy"
+)
+
 # Check result
 if result.is_approved:
     execute()
@@ -49,10 +57,13 @@ Content-Type: application/json
   "title": "Delete User",
   "approvers": ["admin@company.com"],
   "timeout_seconds": 3600,
-  "context": {...}
+  "metadata": {...},
+  "notification_config": {
+    "channels": ["feishu"]
+  }
 }
 
-Response: 201
+Response: 200
 {
   "id": "req_123",
   "status": "pending",
@@ -68,11 +79,40 @@ Response: 200
 {
   "id": "req_123",
   "status": "approved|rejected|pending|timeout",
-  "approved_by": ["admin@company.com"]
+  "approved_by": ["admin@company.com"],
+  "progress_updates": []
 }
 ```
 
-### Approve
+### Append Progress
+```http
+POST /api/v1/approvals/{id}/progress
+Content-Type: application/json
+
+{
+  "message": "Deploying canary",
+  "progress_percent": 50,
+  "stage": "deploy",
+  "metadata": {
+    "release": "2026.03.17"
+  }
+}
+```
+
+### Process Decision
+```http
+POST /api/approval/{id}/process
+Content-Type: application/json
+
+{
+  "request_id": "req_123",
+  "action": "approve",
+  "comment": "Looks good",
+  "approver": "admin@company.com"
+}
+```
+
+### Web Approve
 ```http
 POST /approval/{id}/approve
 Content-Type: application/x-www-form-urlencoded
@@ -80,13 +120,20 @@ Content-Type: application/x-www-form-urlencoded
 approver=admin@company.com&comment=OK
 ```
 
-### Reject
+### Web Reject
 ```http
 POST /approval/{id}/reject
 Content-Type: application/x-www-form-urlencoded
 
 approver=admin@company.com&comment=Denied
 ```
+
+### Feishu Callback
+```http
+POST /api/v1/providers/feishu/callback
+```
+
+This endpoint receives Feishu interactive card callbacks and updates the corresponding approval request in storage.
 
 ## Web UI
 
@@ -107,7 +154,7 @@ from humand_sdk.exceptions import (
 try:
     result = approved_function()
 except ApprovalRejected as e:
-    print(f"Rejected: {e.reason}")
+    print(f"Rejected: {e}")
 except ApprovalTimeout as e:
     print(f"Timeout after {e.timeout_seconds}s")
 ```
@@ -121,6 +168,14 @@ REDIS_PORT=6379
 APPROVERS=admin@company.com
 WEB_PORT=8000
 APPROVAL_TIMEOUT=3600
+HUMAND_PUBLIC_BASE_URL=http://localhost:8000
+HUMAND_NOTIFICATION_PROVIDERS=feishu
+FEISHU_APP_ID=cli_xxx
+FEISHU_APP_SECRET=xxx
+FEISHU_RECEIVE_ID=oc_xxx
+FEISHU_RECEIVE_ID_TYPE=chat_id
+FEISHU_CALLBACK_VERIFICATION_TOKEN=xxx
+HUMAND_SIMULATOR_URL=http://localhost:5000
 ```
 
 All optional - zero-config supported.

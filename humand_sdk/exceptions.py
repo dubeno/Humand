@@ -25,8 +25,10 @@ class ConfigurationError(HumandError):
 class APIError(HumandError):
     """Raised when there's an API communication error."""
     
-    def __init__(self, message: str, status_code: Optional[int] = None, 
+    def __init__(self, message: Any, status_code: Optional[Any] = None, 
                  response_data: Optional[Dict[str, Any]] = None):
+        if isinstance(message, int) and isinstance(status_code, str):
+            message, status_code = status_code, message
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data or {}
@@ -38,6 +40,10 @@ class ApprovalRejected(HumandError):
     def __init__(self, message: str, approval_id: str, 
                  rejected_by: Optional[str] = None, 
                  rejection_reason: Optional[str] = None):
+        if rejected_by is None and rejection_reason is None and approval_id and " " not in message:
+            rejection_reason = approval_id
+            approval_id = message
+            message = f"Approval {approval_id} was rejected: {rejection_reason}"
         super().__init__(message)
         self.approval_id = approval_id
         self.rejected_by = rejected_by
@@ -47,7 +53,11 @@ class ApprovalRejected(HumandError):
 class ApprovalTimeout(HumandError):
     """Raised when an approval request times out."""
     
-    def __init__(self, message: str, approval_id: str, timeout_seconds: int):
+    def __init__(self, message: str, approval_id: Any, timeout_seconds: Optional[int] = None):
+        if isinstance(approval_id, int):
+            timeout_seconds = approval_id
+            approval_id = message
+            message = f"Approval {approval_id} timed out after {timeout_seconds} seconds"
         super().__init__(message)
         self.approval_id = approval_id
         self.timeout_seconds = timeout_seconds

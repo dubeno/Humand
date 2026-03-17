@@ -3,9 +3,9 @@ import uuid
 from datetime import datetime
 from functools import wraps
 from typing import Callable, Dict, Any, Optional
-from .models import ApprovalRequest, ApprovalStatus
+from .models import ApprovalStatus
+from .service import approval_service
 from ..storage import approval_storage
-from ..notification.base import multi_platform_notifier
 from ..utils.config import config
 
 class ApprovalRequired(Exception):
@@ -76,25 +76,15 @@ async def _handle_approval(
         else:
             return func(*args, **kwargs)
     
-    # 创建审批请求
-    approval_request = ApprovalRequest(
-        request_id=request_id,
-        tool_name=actual_tool_name,
-        tool_params=_extract_tool_params(args, kwargs),
+    approval_request = approval_service.create_request(
+        title=actual_tool_name,
+        description=reason,
         requester=requester,
-        reason=reason,
+        metadata=_extract_tool_params(args, kwargs),
         approvers=approvers or config.get_approvers(),
-        request_time=datetime.now(),
-        created_at=datetime.now()
+        timeout_seconds=timeout or config.APPROVAL_TIMEOUT,
     )
-    
-    # 保存审批请求
-    if not approval_storage.save_approval_request(approval_request):
-        raise Exception("保存审批请求失败")
-    
-    # 发送审批通知
-    if not multi_platform_notifier.send_approval_request(approval_request):
-        print("发送审批通知失败，但审批请求已保存")
+    request_id = approval_request.request_id
     
     # 抛出审批异常，让调用者知道需要等待审批
     raise ApprovalRequired(

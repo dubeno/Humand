@@ -1,5 +1,4 @@
 import redis
-import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from ..core.models import ApprovalRequest, ApprovalStatus
@@ -16,18 +15,31 @@ class ApprovalStorage:
         # 索引列表：用于历史/统计（key 本身会过期，列表里会残留无效 id，读取时会清理）
         self._all_ids_key = "approvals_all"
         self._pending_ids_key = "pending_approvals"
+
+    def _ttl_for_request(self, request: ApprovalRequest) -> int:
+        timeout_seconds = request.timeout_seconds or config.APPROVAL_TIMEOUT
+        return max(timeout_seconds, 60)
+
+    def _persist_request(self, request: ApprovalRequest) -> None:
+        key = f"approval:{request.request_id}"
+        request.updated_at = request.updated_at or datetime.now()
+        self.redis_client.setex(key, self._ttl_for_request(request), request.model_dump_json())
+
+    def _read_request(self, request_id: str) -> Optional[ApprovalRequest]:
+        key = f"approval:{request_id}"
+        data = self.redis_client.get(key)
+        if data:
+            return ApprovalRequest.model_validate_json(data)
+        return None
     
     def save_approval_request(self, request: ApprovalRequest) -> bool:
         """保存审批请求"""
         try:
-            key = f"approval:{request.request_id}"
-            data = request.model_dump_json()
-            # 设置过期时间
-            self.redis_client.setex(key, config.APPROVAL_TIMEOUT, data)
-            
-            # 添加到待审批列表
+            self._persist_request(request)
+
             self.redis_client.lrem(self._pending_ids_key, 0, request.request_id)
-            self.redis_client.lpush(self._pending_ids_key, request.request_id)
+            if request.status == ApprovalStatus.PENDING:
+                self.redis_client.lpush(self._pending_ids_key, request.request_id)
 
             # 维护全量索引（用于历史/统计）
             self.redis_client.lrem(self._all_ids_key, 0, request.request_id)
@@ -43,11 +55,19 @@ class ApprovalStorage:
     def get_approval_request(self, request_id: str) -> Optional[ApprovalRequest]:
         """获取审批请求"""
         try:
-            key = f"approval:{request_id}"
-            data = self.redis_client.get(key)
-            if data:
-                return ApprovalRequest.model_validate_json(data)
-            return None
+            request = self._read_request(request_id)
+            if not request:
+                return None
+
+            timeout_seconds = request.timeout_seconds or config.APPROVAL_TIMEOUT
+            if (
+                request.status == ApprovalStatus.PENDING
+                and datetime.now() - request.created_at > timedelta(seconds=timeout_seconds)
+            ):
+                self.update_approval_status(request_id, ApprovalStatus.TIMEOUT)
+                return self._read_request(request_id)
+
+            return request
         except Exception as e:
             print(f"Error getting approval request: {e}")
             return None
@@ -56,12 +76,22 @@ class ApprovalStorage:
                              approver: str = None, comment: str = None) -> bool:
         """更新审批状态"""
         try:
-            request = self.get_approval_request(request_id)
+            request = self._read_request(request_id)
             if not request:
+                return False
+
+            if (
+                request.status != ApprovalStatus.PENDING
+                and status != ApprovalStatus.PENDING
+                and request.status != status
+            ):
+                return False
+            if request.status != ApprovalStatus.PENDING and request.status == status:
                 return False
             
             request.status = status
             current_time = datetime.now()
+            request.updated_at = current_time
             
             # 根据状态更新相应字段
             if status == ApprovalStatus.APPROVED:
@@ -86,8 +116,7 @@ class ApprovalStorage:
             request.approval_comment = comment
             
             # 更新存储
-            key = f"approval:{request_id}"
-            self.redis_client.setex(key, config.APPROVAL_TIMEOUT, request.model_dump_json())
+            self._persist_request(request)
             
             # 从待审批列表移除
             if status != ApprovalStatus.PENDING:
@@ -108,7 +137,8 @@ class ApprovalStorage:
                 request = self.get_approval_request(request_id)
                 if request and request.status == ApprovalStatus.PENDING:
                     # 检查是否超时
-                    if datetime.now() - request.created_at > timedelta(seconds=config.APPROVAL_TIMEOUT):
+                    timeout_seconds = request.timeout_seconds or config.APPROVAL_TIMEOUT
+                    if datetime.now() - request.created_at > timedelta(seconds=timeout_seconds):
                         self.update_approval_status(request_id, ApprovalStatus.TIMEOUT)
                     else:
                         requests.append(request)
@@ -195,6 +225,34 @@ class ApprovalStorage:
             return True
         except Exception as e:
             print(f"Error clearing approvals: {e}")
+            return False
+
+    def append_progress_update(
+        self,
+        request_id: str,
+        message: str,
+        progress_percent: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """追加进度更新记录。"""
+        try:
+            request = self.get_approval_request(request_id)
+            if not request:
+                return False
+
+            request.progress_updates.append(
+                {
+                    "message": message,
+                    "progress_percent": progress_percent,
+                    "metadata": metadata or {},
+                    "created_at": datetime.now().isoformat(),
+                }
+            )
+            request.updated_at = datetime.now()
+            self._persist_request(request)
+            return True
+        except Exception as e:
+            print(f"Error appending progress update: {e}")
             return False
     
     def cleanup_expired_requests(self):

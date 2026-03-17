@@ -24,6 +24,7 @@ def require_approval(
     approval_type: str = "general",
     require_comment: bool = False,
     metadata_extractor: Optional[Callable] = None,
+    context_builder: Optional[Callable] = None,
     sync: bool = True,
     auto_approve_conditions: Optional[Callable] = None
 ):
@@ -82,14 +83,15 @@ def require_approval(
             
             # Extract metadata if extractor provided
             metadata = {}
-            if metadata_extractor:
+            extractor = metadata_extractor or context_builder
+            if extractor:
                 try:
-                    if inspect.ismethod(metadata_extractor):
+                    if inspect.ismethod(extractor):
                         # Method extractor (has self parameter)
-                        metadata = metadata_extractor(args[0] if args else None, *args, **kwargs)
+                        metadata = extractor(args[0] if args else None, *args, **kwargs)
                     else:
                         # Function extractor
-                        metadata = metadata_extractor(*args, **kwargs)
+                        metadata = extractor(*args, **kwargs)
                 except Exception as e:
                     print(f"⚠️ Metadata extraction failed: {e}")
             
@@ -149,7 +151,19 @@ def require_approval(
                         approval_request.id, 
                         timeout_seconds=timeout_seconds
                     )
-                    print(f"✅ Approval granted by: {', '.join(approved_request.approved_by)}")
+                    if getattr(approved_request, "is_rejected", False) is True:
+                        raise ApprovalRejected(
+                            approval_request.id,
+                            "Rejected",
+                        )
+                    if getattr(approved_request, "is_timeout", False) is True:
+                        raise ApprovalTimeout(approval_request.id, timeout_seconds)
+
+                    approved_by = getattr(approved_request, "approved_by", None) or []
+                    if not isinstance(approved_by, list):
+                        approved_by = [str(approved_by)]
+                    approver_label = ", ".join(approved_by) if approved_by else "unknown approver"
+                    print(f"✅ Approval granted by: {approver_label}")
                     
                     # Execute the original function
                     result = func(*args, **kwargs)

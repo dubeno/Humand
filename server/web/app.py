@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, Form, HTTPException, Depends, Header, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Body, Depends, FastAPI, Form, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from typing import List, Optional
@@ -7,9 +7,11 @@ import json
 import uuid
 from datetime import datetime
 
-from ..core.models import ApprovalRequest, ApprovalResponse, ApprovalStatus
+from ..core.models import ApprovalProgressPayload, ApprovalRequest, ApprovalResponse, ApprovalStatus
+from ..core.service import ApprovalNotFoundError, approval_service
 from ..storage import approval_storage
 from ..notification.base import multi_platform_notifier
+from ..notification.feishu import FeishuProvider
 from ..utils.config import config
 from ..auth import (
     User, UserRole, Permission, UserCreate, UserLogin,
@@ -26,6 +28,28 @@ templates = Jinja2Templates(directory=template_dir)
 
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+def serialize_approval_request(approval_request: ApprovalRequest) -> dict:
+    payload = {
+        "id": approval_request.request_id,
+        "title": approval_request.tool_name,
+        "description": approval_request.reason,
+        "status": approval_request.status.value,
+        "approvers": approval_request.approvers,
+        "created_at": approval_request.created_at.isoformat(),
+        "updated_at": approval_request.updated_at.isoformat(),
+        "approved_by": approval_request.approved_by,
+        "rejected_by": approval_request.rejected_by,
+        "comments": approval_request.comments,
+        "metadata": approval_request.tool_params,
+        "progress_updates": approval_request.progress_updates,
+        "notification_channels": approval_request.notification_channels,
+        "web_url": f"{config.get_public_base_url()}/approval/{approval_request.request_id}",
+    }
+    if config.ENV == "development":
+        payload["provider_metadata"] = approval_request.provider_metadata
+    return payload
 
 def require_api_key(authorization: Optional[str] = Header(None)):
     """
@@ -178,15 +202,14 @@ async def approve_request(request_id: str,
             "approver": approver
         }
     
-    success = approval_storage.update_approval_status(
-        request_id, ApprovalStatus.APPROVED, approver, comment
+    approval_storage.save_approval_request(approval_request)
+    approval_service.process_decision(
+        request_id,
+        ApprovalStatus.APPROVED,
+        approver=approver,
+        comment=comment,
+        source="web",
     )
-    
-    if success:
-        # 发送结果通知
-        updated_request = approval_storage.get_approval_request(request_id)
-        if updated_request:
-            multi_platform_notifier.send_approval_result(updated_request)
     
     return RedirectResponse(
         url=f"/approval/{request_id}?approved=true", 
@@ -203,26 +226,27 @@ async def reject_request(request_id: str,
     approver = user.username
     approval_request = approval_storage.get_approval_request(request_id)
     
-    if approval_request:
-        # 添加拒绝详情
-        approval_request.comments.append({
-            "type": "rejection",
-            "approver": approver,
-            "comment": comment,
-            "category": reject_category,
-            "timestamp": datetime.now().isoformat()
-        })
-        approval_storage.save_approval_request(approval_request)
-    
-    success = approval_storage.update_approval_status(
-        request_id, ApprovalStatus.REJECTED, approver, comment
+    if not approval_request:
+        raise HTTPException(status_code=404, detail="审批请求不存在")
+    if approval_request.status != ApprovalStatus.PENDING:
+        raise HTTPException(status_code=400, detail="请求已处理")
+
+    approval_request.comments.append({
+        "type": "rejection",
+        "approver": approver,
+        "comment": comment,
+        "category": reject_category,
+        "timestamp": datetime.now().isoformat()
+    })
+    approval_storage.save_approval_request(approval_request)
+
+    approval_service.process_decision(
+        request_id,
+        ApprovalStatus.REJECTED,
+        approver=approver,
+        comment=comment,
+        source="web",
     )
-    
-    if success:
-        # 发送结果通知
-        updated_request = approval_storage.get_approval_request(request_id)
-        if updated_request:
-            multi_platform_notifier.send_approval_result(updated_request)
     
     return RedirectResponse(
         url=f"/approval/{request_id}?rejected=true", 
@@ -280,44 +304,26 @@ async def get_pending_approvals(user: User = Depends(require_permission(Permissi
 async def create_approval_api(approval_data: dict, _=Depends(require_api_key)):
     """API: 创建审批请求"""
     try:
-        # 创建审批请求对象
-        import uuid
-        current_time = datetime.now()
         title = approval_data.get("title", "Approval Required")
         description = approval_data.get("description", "") or "No description provided"
         approvers = approval_data.get("approvers", []) or []
         metadata = approval_data.get("metadata", {}) or {}
-        approval_request = ApprovalRequest(
-            request_id=str(uuid.uuid4()),
-            tool_name=title,
-            tool_params=metadata,
-            requester=approval_data.get("requester") or metadata.get("requester") or "SDK Client",
-            reason=description,
-            approvers=approvers,
-            request_time=current_time,
-            created_at=current_time
+        notification_config = approval_data.get("notification_config") or {}
+        channels = (
+            approval_data.get("notification_channels")
+            or notification_config.get("channels")
+            or []
         )
-        
-        # 保存到存储
-        approval_storage.save_approval_request(approval_request)
-        
-        # 发送通知
-        multi_platform_notifier.send_approval_request(approval_request)
-        
-        return {
-            "id": approval_request.request_id,
-            "title": title,
-            "description": description,
-            "status": approval_request.status.value,
-            "approvers": approvers,
-            "created_at": approval_request.created_at.isoformat(),
-            "updated_at": approval_request.created_at.isoformat(),
-            "approved_by": approval_request.approved_by,
-            "rejected_by": approval_request.rejected_by,
-            "comments": approval_request.comments,
-            "metadata": metadata,
-            "web_url": f"http://localhost:8000/approval/{approval_request.request_id}"
-        }
+        approval_request = approval_service.create_request(
+            title=title,
+            description=description,
+            requester=approval_data.get("requester") or metadata.get("requester") or "SDK Client",
+            metadata=metadata,
+            approvers=approvers,
+            timeout_seconds=approval_data.get("timeout_seconds"),
+            notification_channels=channels,
+        )
+        return serialize_approval_request(approval_request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建审批请求失败: {str(e)}")
 
@@ -329,21 +335,23 @@ async def get_approval_request(request_id: str, _=Depends(require_api_key)):
     if not approval_request:
         raise HTTPException(status_code=404, detail="审批请求不存在")
     
-    # 返回 SDK 兼容的格式
-    return {
-        "id": approval_request.request_id,
-        "title": approval_request.tool_name,
-        "description": approval_request.reason,
-        "status": approval_request.status.value,
-        "approvers": approval_request.approvers,
-        "created_at": approval_request.created_at.isoformat(),
-        "updated_at": (approval_request.approved_at or approval_request.rejected_at or approval_request.created_at).isoformat(),
-        "approved_by": approval_request.approved_by,
-        "rejected_by": approval_request.rejected_by,
-        "comments": approval_request.comments,
-        "metadata": approval_request.tool_params,
-        "web_url": f"http://localhost:8000/approval/{approval_request.request_id}"
-    }
+    return serialize_approval_request(approval_request)
+
+
+@app.post("/api/v1/approvals/{request_id}/progress")
+async def append_approval_progress(
+    request_id: str,
+    payload: ApprovalProgressPayload,
+    _=Depends(require_api_key),
+):
+    """API: 发送审批相关进度更新"""
+    try:
+        approval_request = approval_service.append_progress_update(request_id, payload)
+        return serialize_approval_request(approval_request)
+    except ApprovalNotFoundError:
+        raise HTTPException(status_code=404, detail="审批请求不存在")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"写入进度失败: {str(e)}")
 
 @app.post("/api/approval/{request_id}/process")
 async def process_approval(request_id: str, response: ApprovalResponse, _=Depends(require_api_key)):
@@ -356,23 +364,77 @@ async def process_approval(request_id: str, response: ApprovalResponse, _=Depend
     if approval_request.status != ApprovalStatus.PENDING:
         raise HTTPException(status_code=400, detail="请求已经被处理")
     
-    # 确定新状态
     new_status = ApprovalStatus.APPROVED if response.action == "approve" else ApprovalStatus.REJECTED
-    
-    # 更新审批状态
-    success = approval_storage.update_approval_status(
-        request_id, new_status, response.approver, response.comment
+    updated_request, changed = approval_service.process_decision(
+        request_id,
+        new_status,
+        approver=response.approver,
+        comment=response.comment or "",
+        source="api",
     )
+    if not changed:
+        raise HTTPException(status_code=400, detail="请求已经被处理")
     
-    if not success:
-        raise HTTPException(status_code=500, detail="更新审批状态失败")
-    
-    # 发送结果通知
-    updated_request = approval_storage.get_approval_request(request_id)
-    if updated_request:
-        multi_platform_notifier.send_approval_result(updated_request)
-    
-    return {"success": True, "status": new_status}
+    return {"success": True, "status": new_status.value, "approval": serialize_approval_request(updated_request)}
+
+
+@app.post("/api/v1/providers/feishu/callback")
+async def feishu_callback(payload: dict = Body(...)):
+    """接收飞书交互卡片回调。"""
+    provider = multi_platform_notifier.get_provider("feishu")
+    if not isinstance(provider, FeishuProvider):
+        raise HTTPException(status_code=503, detail="飞书提供者未启用")
+
+    verification = provider.handle_url_verification(payload)
+    if verification:
+        return verification
+
+    try:
+        action = provider.parse_callback(payload)
+        approval_request = approval_storage.get_approval_request(action.request_id)
+        if not approval_request:
+            raise HTTPException(status_code=404, detail="审批请求不存在")
+
+        provider.validate_callback_action(approval_request, action)
+        new_status = (
+            ApprovalStatus.APPROVED
+            if action.action == "approve"
+            else ApprovalStatus.REJECTED
+        )
+        updated_request, changed = approval_service.process_decision(
+            action.request_id,
+            new_status,
+            approver=action.approver,
+            comment="",
+            source="feishu",
+            source_metadata={
+                "approver_id": action.approver_id,
+                "message_id": action.message_id,
+            },
+        )
+
+        if changed:
+            return JSONResponse(
+                provider.build_callback_response(
+                    updated_request,
+                    toast_type="success",
+                    toast_message=f"{provider.status_label(updated_request)}",
+                )
+            )
+
+        return JSONResponse(
+            provider.build_callback_response(
+                updated_request,
+                toast_type="info",
+                toast_message="This approval was already handled.",
+            )
+        )
+    except HTTPException:
+        raise
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/test/platforms")
 async def test_platforms(user: User = Depends(require_role(UserRole.ADMIN))):

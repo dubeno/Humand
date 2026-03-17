@@ -147,6 +147,18 @@ class ApprovalConfig:
             **kwargs
         )
 
+    @classmethod
+    def custom(
+        cls,
+        title: str,
+        approvers: Union[str, List[str]],
+        **kwargs,
+    ) -> 'ApprovalConfig':
+        """Backward-compatible alias for creating a custom approval configuration."""
+        if isinstance(approvers, str):
+            approvers = [approvers]
+        return cls(title=title, approvers=approvers, **kwargs)
+
 
 @dataclass
 class HumandClientConfig:

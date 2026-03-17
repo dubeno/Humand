@@ -18,6 +18,8 @@ class ApprovalRequest(BaseModel):
     approvers: List[str] = Field(default_factory=list)
     request_time: datetime
     created_at: datetime
+    updated_at: datetime = Field(default_factory=datetime.now)
+    timeout_seconds: Optional[int] = None
     status: ApprovalStatus = ApprovalStatus.PENDING
     approver: Optional[str] = None
     approved_by: List[str] = Field(default_factory=list)
@@ -26,12 +28,22 @@ class ApprovalRequest(BaseModel):
     rejected_at: Optional[datetime] = None
     approval_comment: Optional[str] = None
     comments: List[Dict[str, Any]] = Field(default_factory=list)
+    progress_updates: List[Dict[str, Any]] = Field(default_factory=list)
+    notification_channels: List[str] = Field(default_factory=list)
+    provider_metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class ApprovalResponse(BaseModel):
     request_id: str
     action: str  # "approve" or "reject"
     comment: Optional[str] = None
     approver: str
+
+
+class ApprovalProgressPayload(BaseModel):
+    message: str
+    progress_percent: Optional[int] = None
+    stage: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class ToolExecutionRequest(BaseModel):
     tool_name: str
